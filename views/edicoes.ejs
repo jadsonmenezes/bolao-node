@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8"><title>Admin: Parâmetros</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-50 font-sans text-slate-800 pb-12">
+    
+    <div id="loading-overlay" class="hidden fixed inset-0 bg-slate-900/80 backdrop-blur-md z-50 flex flex-col items-center justify-center text-white">
+        <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-green-500 mb-4"></div>
+        <h2 class="text-xl font-bold">Processando Dados da Rodada...</h2>
+    </div>
+
+    <nav class="bg-slate-900 text-white p-4 shadow-md sticky top-0 z-50">
+        <div class="container mx-auto flex justify-between items-center">
+            <h1 class="text-base font-bold">Painel de Parâmetros</h1>
+            <div class="space-x-4 text-sm font-semibold">
+                <a href="/<%= linkParams %>" class="text-slate-400 hover:text-white transition">Ranking</a>
+                <a href="/apostas<%= linkParams %>" class="text-slate-400 hover:text-white transition">Apostas</a>
+                <a href="/sorteios<%= linkParams %>" class="text-slate-400 hover:text-white transition">Sorteios</a>
+                <a href="/edicoes<%= linkParams %>" class="text-white border-b-2 border-white pb-1">Edições</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container mx-auto p-4 mt-6 grid grid-cols-1 md:grid-cols-2 gap-8 max-w-6xl">
+        <div class="space-y-6">
+            
+            <div class="flex gap-4">
+                <button onclick="abrirCriacaoNova()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl shadow uppercase text-xs tracking-wider">➕ Criar Nova Edição</button>
+                <button onclick="focarEdicaoAtual()" class="flex-1 bg-slate-800 hover:bg-slate-900 text-white font-bold py-3 px-4 rounded-xl shadow uppercase text-xs tracking-wider">⚙️ Ajustar Edição Atual</button>
+            </div>
+
+            <div class="bg-white p-6 rounded-2xl shadow border">
+                <h3 class="text-xl font-black mb-4 border-b pb-2 text-slate-800" id="form-titulo">Modificar Edição Ativa</h3>
+                <form action="/edicoes/salvar" method="POST" id="form-edicao" class="space-y-4 text-xs font-bold uppercase tracking-wider text-slate-500">
+                    <input type="hidden" name="id" id="edicao-id" value="<%= edicao.id %>">
+                    
+                    <div id="box-clonagem" class="hidden bg-amber-50 border border-amber-300 p-4 rounded-xl text-amber-900 normal-case tracking-normal">
+                        <p class="font-bold text-sm mb-2">🔄 Reusar Jogos?</p>
+                        <p class="text-xs mb-3 text-amber-700">Deseja migrar automaticamente todos os participantes e jogos cadastrados na edição anterior para esta nova?</p>
+                        <div class="flex gap-4">
+                            <label class="flex items-center gap-1 font-bold"><input type="radio" name="clonar_jogos" value="sim"> Sim, clonar tudo</label>
+                            <label class="flex items-center gap-1 font-bold"><input type="radio" name="clonar_jogos" value="nao" checked> Não, planilha nova</label>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block mb-1 text-slate-400">Nome do Evento</label>
+                        <input type="text" name="nome_bolao" id="ed-nome" value="<%= edicao.nome_bolao %>" required class="w-full bg-slate-50 border rounded-lg p-2.5 font-bold text-slate-800 text-sm outline-none">
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-4">
+                        <div><label class="block mb-1 text-slate-400">Data de Início</label><input type="date" name="data_inicio" id="ed-data" value="<%= edicao.data_inicio %>" required class="w-full bg-slate-50 border rounded-lg p-2.5 font-medium text-slate-800 outline-none"></div>
+                        <div><label class="block mb-1 text-slate-400">Valor do Bilhete (R$)</label><input type="number" step="0.01" name="valor_aposta" id="ed-valor" value="<%= edicao.valor_aposta %>" required class="w-full bg-slate-50 border rounded-lg p-2.5 font-bold text-slate-800 text-sm outline-none"></div>
+                    </div>
+
+                    <div class="bg-slate-50 p-4 border rounded-xl space-y-3">
+                        <div class="grid grid-cols-2 gap-3">
+                            <div><label class="text-red-600">Taxa Mesa Admin (%):</label><input type="number" name="pct_admin" id="ed-admin" value="<%= edicao.pct_admin %>" class="w-full border rounded p-2 mt-1 text-sm text-slate-800"></div>
+                            <div><label>Doações Beneficentes (%):</label><input type="number" name="pct_doacao" id="ed-doacao" value="<%= edicao.pct_doacao %>" class="w-full border rounded p-2 mt-1 text-sm text-slate-800"></div>
+                            <div class="col-span-2 border-t pt-2 font-black text-slate-700 text-sm normal-case">Divisão Líquida:</div>
+                            <div><label class="text-green-600">Prêmio Sena (6 Acertos %):</label><input type="number" name="pct_premio_principal" id="ed-sena" value="<%= edicao.pct_premio_principal %>" class="w-full border border-green-300 text-green-700 font-bold rounded p-2 mt-1 text-sm"></div>
+                            <div><label class="text-blue-600">Prêmio 1º Sorteio (%):</label><input type="number" name="pct_primeiro_sorteio" id="ed-pri" value="<%= edicao.pct_primeiro_sorteio %>" class="w-full border border-blue-300 text-blue-700 font-bold rounded p-2 mt-1 text-sm"></div>
+                            <div class="col-span-2"><label class="text-purple-600">Rateio dos Próximos Acertos (%):</label><input type="number" name="pct_proximos" id="ed-rateio" value="<%= edicao.pct_proximos %>" class="w-full border border-purple-300 text-purple-700 font-bold rounded p-2 mt-1 text-sm"></div>
+                        </div>
+                        <label class="flex items-center gap-2 mt-4 cursor-pointer pt-2 border-t normal-case font-bold text-slate-600"><input type="checkbox" name="mostrar_admin" id="ed-mostrar" <%= edicao.mostrar_admin ? 'checked' : '' %> class="w-4 h-4 rounded text-slate-900"><span>Exibir Lucro da Mesa no ranking público</span></label>
+                    </div>
+                    <button type="submit" id="btn-submit" class="w-full bg-slate-900 text-white py-3 rounded-xl uppercase font-bold text-sm shadow-md">Salvar Alterações</button>
+                </form>
+            </div>
+
+            <div id="area-upload-planilha" class="bg-gradient-to-br from-blue-900 to-indigo-950 p-6 rounded-2xl shadow-xl text-white">
+                <h3 class="text-lg font-black mb-2 flex items-center gap-2"><span>📂</span> Importação via Planilha</h3>
+                <p class="text-xs text-indigo-200 mb-4 font-medium">Faça o upload do arquivo no formato da sua planilha oficial para processamento automático.</p>
+                <form action="/edicoes/importar<%= linkParams %>" method="POST" enctype="multipart/form-data" id="excel-form" class="space-y-4 text-xs font-bold">
+                    <input type="file" name="planilha" accept=".xlsx, .xls, .csv" required class="block w-full text-slate-400 file:mr-4 file:py-2.5 file:px-4 file:rounded-lg file:border-0 file:bg-blue-600 file:text-white file:font-bold border rounded-xl bg-white p-2 cursor-pointer shadow-sm">
+                    <button type="submit" id="btn-importar-excel" class="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-xl uppercase font-black tracking-wider shadow-md transition">Processar Planilha</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="bg-white p-6 rounded-2xl shadow border h-fit">
+            <h3 class="text-xl font-black mb-4 border-b pb-2 text-slate-800">Histórico de Edições</h3>
+            <div class="space-y-3">
+                <% todasEdicoes.forEach(e => { %>
+                <div class="flex flex-col sm:flex-row justify-between sm:items-center bg-slate-50 p-3 rounded-xl border gap-2 hover:shadow-sm transition">
+                    <div>
+                        <span class="font-extrabold text-slate-900 block text-base"><%= e.nome_bolao %></span>
+                        <span class="text-xs font-bold text-green-600">Edição Geral Nº <%= e.numero %></span>
+                    </div>
+                    <div class="flex gap-1 text-xs font-bold uppercase justify-end">
+                        <button onclick='editarEdicao(<%- JSON.stringify(e) %>)' class="bg-white border border-slate-300 text-slate-600 px-3 py-1.5 rounded-lg hover:bg-slate-100 shadow-sm">Carregar / Ajustar</button>
+                        <form action="/edicoes/deletar/<%= e.id %>" method="POST" onsubmit="return confirm('Confirmar exclusão definitiva?');">
+                            <button type="submit" class="bg-red-50 text-red-600 border border-red-200 px-2.5 py-1.5 rounded-lg hover:bg-red-100 shadow-sm">Excluir</button>
+                        </form>
+                    </div>
+                </div>
+                <% }) %>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const currentEditionData = <%- JSON.stringify(edicao) %>;
+
+        document.getElementById('excel-form').addEventListener('submit', function() {
+            document.getElementById('loading-overlay').classList.remove('hidden');
+            document.getElementById('btn-importar-excel').disabled = true;
+        });
+
+        function abrirCriacaoNova() {
+            document.getElementById('form-titulo').innerText = "Criar Nova Edição do Bolão";
+            document.getElementById('edicao-id').value = "0";
+            document.getElementById('box-clonagem').classList.remove('hidden');
+            document.getElementById('btn-submit').innerText = "Iniciar Nova Rodada";
+            document.getElementById('btn-submit').className = "w-full bg-blue-600 text-white py-3 rounded-xl uppercase font-bold text-sm shadow-md";
+            
+            document.getElementById('ed-admin').value = currentEditionData.pct_admin || 15;
+            document.getElementById('ed-doacao').value = currentEditionData.pct_doacao || 3;
+            document.getElementById('ed-sena').value = currentEditionData.pct_premio_principal || 75;
+            document.getElementById('ed-pri').value = currentEditionData.pct_primeiro_sorteio || 7;
+            document.getElementById('ed-rateio').value = currentEditionData.pct_proximos || 15;
+        }
+
+        function focarEdicaoAtual() {
+            editarEdicao(currentEditionData);
+        }
+
+        function editarEdicao(e) {
+            document.getElementById('form-titulo').innerText = "Ajustar Parâmetros da Edição " + e.numero; 
+            document.getElementById('edicao-id').value = e.id;
+            document.getElementById('box-clonagem').classList.add('hidden');
+            document.getElementById('ed-nome').value = e.nome_bolao; 
+            document.getElementById('ed-data').value = e.data_inicio; 
+            document.getElementById('ed-valor').value = e.valor_aposta;
+            document.getElementById('ed-admin').value = e.pct_admin; 
+            document.getElementById('ed-doacao').value = e.pct_doacao; 
+            document.getElementById('ed-sena').value = e.pct_premio_principal;
+            document.getElementById('ed-pri').value = e.pct_primeiro_sorteio; 
+            document.getElementById('ed-rateio').value = e.pct_proximos; 
+            document.getElementById('ed-mostrar').checked = e.mostrar_admin === 1 || e.mostrar_admin === true;
+            document.getElementById('btn-submit').innerText = "Salvar Parâmetros";
+            document.getElementById('btn-submit').className = "w-full bg-slate-900 text-white py-3 rounded-xl uppercase font-bold text-sm shadow-md";
+            window.scrollTo({top:0, behavior:'smooth'});
+        }
+
+        document.querySelectorAll('input[name="clonar_jogos"]').forEach(el => {
+            el.addEventListener('change', (e) => {
+                const area = document.getElementById('area-upload-planilha');
+                if(e.target.value === 'sim') area.classList.add('opacity-30', 'pointer-events-none');
+                else area.classList.remove('opacity-30', 'pointer-events-none');
+            });
+        });
+    </script>
+</body>
+</html>
