@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8"><title><%= edicao.nome_bolao %></title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .bolinha-premiada { background: linear-gradient(135deg, #22c55e, #16a34a) !important; color: white !important; border: 2px solid #14532d; transform: scale(1.04); }
+        .bolinha-vazia { background-color: #f3f4f6 !important; color: #9ca3af !important; border: 1px solid #e5e7eb; }
+        .btn-filtro.active { background-color: #047857; color: white; border-color: #047857; }
+        
+        @media print {
+            body { background: white; color: black; font-size: 11px; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+            nav, input, button, #btn-ordem-ranking, .no-print { display: none !important; }
+            main { max-width: 100% !important; padding: 0 !important; margin: 0 !important; }
+            .bg-white { box-shadow: none !important; border: none !important; }
+            .overflow-x-auto { max-height: none !important; overflow: visible !important; }
+            table { width: 100% !important; border-collapse: collapse !important; }
+            th { background-color: #0f172a !important; color: white !important; padding: 4px !important; font-size: 10px !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+            td { padding: 4px !important; border-bottom: 1px solid #cbd5e1 !important; }
+            .bolinha-premiada { background: #22c55e !important; color: white !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; width: 22px !important; height: 22px !important; font-size: 10px !important; display: inline-flex !important; }
+            .bolinha-vazia { background: #e2e8f0 !important; color: #94a3b8 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; width: 22px !important; height: 22px !important; font-size: 10px !important; display: inline-flex !important; }
+            .badge-premio { background-color: #fef3c7 !important; color: #92400e !important; border: 1px solid #fde68a !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+            tr { page-break-inside: avoid !important; }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 font-sans text-slate-800 antialiased">
+    
+    <nav class="bg-emerald-900 text-white p-4 shadow-xl sticky top-0 z-50">
+        <div class="container mx-auto flex flex-col md:flex-row justify-between items-center gap-3">
+            <form action="/" method="GET" class="flex items-center gap-3 w-full md:w-auto">
+                <select name="edicao_id" onchange="this.form.submit()" class="bg-emerald-950 text-white font-bold rounded-lg p-2 border border-emerald-700 cursor-pointer outline-none text-sm shadow-inner">
+                    <% todasEdicoes.forEach(e => { %><option value="<%= e.id %>" <%= edicao.id === e.id ? 'selected' : '' %>>Edição <%= e.numero %></option><% }) %>
+                </select>
+            </form>
+            <div class="space-x-1 font-semibold text-sm w-full md:w-auto flex justify-around md:justify-end">
+                <a href="/<%= linkParams %>" class="bg-white/20 px-4 py-2 rounded-lg shadow text-white">Ranking Público</a>
+                <% if (isAdmin) { %>
+                    <a href="/apostas<%= linkParams %>" class="px-4 py-2 hover:bg-white/10 rounded-lg text-emerald-100 transition">Painel Admin</a>
+                    <a href="/logout" class="px-4 py-2 hover:bg-red-600/30 rounded-lg text-red-200 transition">Sair</a>
+                <% } else { %>
+                    <a href="/login" class="px-4 py-2 hover:bg-white/10 rounded-lg text-emerald-100 transition">Painel Restrito</a>
+                <% } %>
+            </div>
+        </div>
+    </nav>
+
+    <header class="container mx-auto px-4 py-6 text-center">
+        <h1 class="text-4xl md:text-5xl font-black text-emerald-900 tracking-tight drop-shadow-sm uppercase"><%= edicao.nome_bolao %></h1>
+        <div class="inline-flex flex-wrap items-center justify-center gap-2 text-xs font-bold text-slate-500 mt-3">
+            <span class="bg-emerald-100 text-emerald-800 px-3 py-1 rounded-full uppercase text-[11px] font-black tracking-wide">Edição Geral Nº <%= edicao.numero %></span>
+            <span class="bg-amber-100 text-amber-900 px-3 py-1 rounded-full text-[11px] font-black border border-amber-300 shadow-sm">📅 Início do Evento: <%= edicao.data_inicio %></span>
+            <span class="bg-slate-100 text-slate-700 px-3 py-1 rounded-full text-[11px]">Valor: R$ <%= edicao.valor_aposta.toFixed(2) %></span>
+            <% if (stats.temSena || edicao.status === 'finalizada') { %>
+                <span class="bg-red-600 text-white px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider animate-pulse">Encerrado</span>
+            <% } %>
+        </div>
+    </header>
+
+    <main class="container mx-auto px-4 pb-12 max-w-6xl">
+        
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-6">
+            <div class="bg-white p-4 rounded-xl shadow border border-slate-200"><p class="text-xs font-bold text-slate-400 uppercase">Apostas</p><p class="text-3xl font-black text-slate-800"><%= stats.total %></p><p class="text-xs text-slate-500"><%= stats.pagos %> pagas | <%= stats.bonus %> cortesia</p></div>
+            
+            <% if (edicao.mostrar_admin || isAdmin) { %>
+                <div class="bg-white p-4 rounded-xl shadow border border-slate-200"><p class="text-xs font-bold text-slate-400 uppercase">Administração (<%= edicao.pct_admin %>%)</p><p class="text-3xl font-black text-red-500">R$ <%= stats.adminValor.toFixed(2) %></p><p class="text-xs text-slate-400">Total bruto arrecadado: R$ <%= stats.arrecadacaoAtual.toFixed(2) %></p></div>
+            <% } %>
+            
+            <div class="bg-gradient-to-br from-emerald-800 to-emerald-950 p-4 rounded-xl shadow text-white <%= (edicao.mostrar_admin || isAdmin) ? '' : 'md:col-span-2' %>">
+                <p class="text-xs font-bold text-emerald-300 uppercase">Premiação</p>
+                <p class="text-3xl font-black mb-3">R$ <%= stats.fundoPremio.toFixed(2) %></p>
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[10px] font-bold text-emerald-100">
+                    <div class="bg-white/10 p-2 rounded">Principal (Sena):<br><span class="text-white text-xs">R$ <%= (stats.fundoPremio * (edicao.pct_premio_principal/100)).toFixed(2) %></span></div>
+                    <div class="bg-white/10 p-2 rounded">1º Sorteio:<br><span class="text-white text-xs">R$ <%= (stats.fundoPremio * (edicao.pct_primeiro_sorteio/100)).toFixed(2) %></span></div>
+                    <div class="bg-white/10 p-2 rounded">Rateio Próximos:<br><span class="text-white text-xs">R$ <%= (stats.fundoPremio * (edicao.pct_proximos/100)).toFixed(2) %></span></div>
+                    <div class="bg-white/10 p-2 rounded">Doações:<br><span class="text-white text-xs">R$ <%= (stats.fundoPremio * (edicao.pct_doacao/100)).toFixed(2) %></span></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow p-4 mb-6 border border-slate-200">
+            <h3 class="font-extrabold text-slate-900 mb-3 text-sm uppercase tracking-wider text-slate-400 flex items-center gap-1">📊 Quantidade de Apostas por Acerto</h3>
+            <div class="grid grid-cols-2 sm:grid-cols-7 gap-2 text-center">
+                <% for(let i = 6; i >= 0; i--) { 
+                    let totalComPontos = ranking.filter(j => j.accTot === i).length;
+                %>
+                    <div class="p-2 rounded-xl border <%= totalComPontos > 0 ? 'bg-indigo-50/60 border-indigo-200 font-bold' : 'bg-slate-50 border-slate-100 text-slate-400 font-normal' %>">
+                        <span class="text-xs block text-slate-500"><%= i %> Acertos</span>
+                        <span class="text-xl font-black mt-0.5 block <%= totalComPontos > 0 ? 'text-indigo-700' : 'text-slate-400' %>"><%= totalComPontos %></span>
+                        <span class="text-[9px] text-slate-400 block uppercase tracking-tight">jogos</span>
+                    </div>
+                <% } %>
+            </div>
+        </div>
+
+        <% if (sorteios.length > 0) { %>
+        <div class="bg-white rounded-xl shadow p-4 mb-6 border border-slate-200">
+            <h3 class="font-extrabold text-slate-900 mb-2 flex items-center gap-2 text-sm uppercase tracking-wider text-slate-400">🍀 Resultados dos Sorteios Oficiais</h3>
+            <div class="flex flex-wrap gap-3">
+                <% sorteios.forEach(s => { %>
+                    <div class="bg-slate-50 px-3 py-2 rounded-lg border text-center border-slate-200">
+                        <span class="text-[9px] font-black text-slate-400 block uppercase">Concurso <%= s.concurso %></span>
+                        <div class="flex gap-1 mt-1">
+                            <% s.dezenas.forEach(d => { %><span class="w-6 h-6 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center text-xs shadow-sm"><%= d.toString().padStart(2, '0') %></span><% }) %>
+                        </div>
+                    </div>
+                <% }) %>
+            </div>
+        </div>
+        <% } %>
+
+        <div class="bg-white rounded-xl shadow border border-slate-200 overflow-hidden">
+            <div class="p-3 bg-slate-50 border-b flex flex-col md:flex-row gap-3 justify-between items-center">
+                <input type="text" id="busca" placeholder="Filtrar por participante..." class="border rounded-xl px-3 py-1.5 w-full md:w-1/3 text-sm outline-none">
+                <div class="flex flex-wrap gap-1 justify-end items-center">
+                    <button onclick="filtrarAcertos('todos')" class="btn-filtro active text-xs font-bold border px-2.5 py-1.5 rounded-lg bg-white">Todos</button>
+                    <button onclick="filtrarAcertos(6)" class="btn-filtro text-xs font-bold border px-2.5 py-1.5 rounded-lg bg-white">6 Pts</button>
+                    <button onclick="filtrarAcertos(5)" class="btn-filtro text-xs font-bold border px-2.5 py-1.5 rounded-lg bg-white">5 Pts</button>
+                    <button onclick="filtrarAcertos(4)" class="btn-filtro text-xs font-bold border px-2.5 py-1.5 rounded-lg bg-white">4 Pts</button>
+                    <button onclick="alternarOrdemAcertos()" id="btn-ordem-ranking" class="text-xs font-bold border px-2.5 py-1.5 rounded-lg bg-blue-50 text-blue-700 ml-2">📊 Ordem: Maior Acerto</button>
+                    <button onclick="window.print()" class="text-xs font-bold border border-slate-300 px-3 py-1.5 rounded-lg bg-white text-slate-700 ml-2">🖨️ Imprimir Ranking</button>
+                </div>
+            </div>
+            
+            <div class="overflow-x-auto max-h-[65vh]">
+                <table class="min-w-full text-left border-collapse" id="tabela-ranking">
+                    <thead class="bg-slate-900 text-slate-100 text-xs uppercase sticky top-0 z-10">
+                        <tr>
+                            <th class="p-3 text-center w-20">Cartão</th>
+                            <th class="p-3">Participante / Prêmios Concorridos</th>
+                            <th class="p-3 text-center">Dezenas Compradas</th>
+                            <th class="p-3 text-center w-24">Acertos</th>
+                        </tr>
+                    </thead>
+                    <tbody id="corpo-tabela" class="text-sm divide-y divide-slate-100">
+                        <% ranking.forEach(j => { %>
+                        <tr class="item-ranking transition whitespace-nowrap hover:bg-slate-50" data-acertos="<%= j.accTot %>" data-cartao="<%= j.cartao %>">
+                            <td class="p-3 text-center font-bold text-slate-400">Nº <%= j.cartao || '-' %></td>
+                            <td class="p-3">
+                                <div class="flex items-center gap-2 overflow-hidden truncate max-w-[450px]">
+                                    <span class="font-bold text-slate-900 text-sm truncate"><%= j.nome %></span>
+                                    <% if (j.is_bonus) { %><span class="text-[8px] bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded font-black uppercase tracking-wide">Bônus</span><% } %>
+                                    
+                                    <% if (j.premios.length > 0) { %>
+                                        <% j.premios.forEach(p => { %>
+                                            <span class="badge-premio bg-amber-100 text-amber-900 border border-amber-300 font-extrabold px-2 py-0.5 rounded text-[10px] flex items-center gap-0.5 shadow-sm">
+                                                🏆 <%= p.nome %>: <span class="text-emerald-700 font-black">R$ <%= p.valor.toFixed(2) %></span>
+                                            </span>
+                                        <% }) %>
+                                    <% } %>
+                                </div>
+                            </td>
+                            <td class="p-3 text-center">
+                                <div class="flex justify-center gap-1">
+                                    <% j.dezenas.forEach(d => { %>
+                                        <span class="w-7 h-7 rounded-full font-bold text-xs flex items-center justify-center transition-all <%= todasDezenas.includes(d) ? 'bolinha-premiada' : 'bolinha-vazia' %>"><%= d.toString().padStart(2, '0') %></span>
+                                    <% }) %>
+                                </div>
+                            </td>
+                            <td class="p-3 text-center font-black text-xl text-slate-400"><span class="<%= j.accTot > 0 ? 'text-indigo-600' : '' %>"><%= j.accTot %></span></td>
+                        </tr>
+                        <% }) %>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        document.getElementById('busca').addEventListener('input', e => {
+            const t = e.target.value.toLowerCase();
+            document.querySelectorAll('#corpo-tabela tr').forEach(r => { r.style.display = r.cells[1].innerText.toLowerCase().includes(t) ? '' : 'none'; });
+        });
+
+        function filtrarAcertos(alvo) {
+            document.querySelectorAll('.btn-filtro').forEach(b => b.classList.remove('active'));
+            event.target.classList.add('active');
+            document.querySelectorAll('.item-ranking').forEach(row => {
+                let pts = parseInt(row.dataset.acertos);
+                if (alvo === 'todos') row.style.display = '';
+                else row.style.display = pts === parseInt(alvo) ? '' : 'none';
+            });
+        }
+
+        let ordemDecrescente = true;
+        function alternarOrdemAcertos() {
+            const tbody = document.getElementById('corpo-tabela');
+            const linhas = Array.from(tbody.rows);
+            ordemDecrescente = !ordemDecrescente;
+            document.getElementById('btn-ordem-ranking').innerText = ordemDecrescente ? "📊 Ordem: Maior Acerto" : "📊 Ordem: Menor Acerto";
+            linhas.sort((a, b) => {
+                let ptsA = parseInt(a.dataset.acertos || 0);
+                let ptsB = parseInt(b.dataset.acertos || 0);
+                if (ptsA !== ptsB) return ordemDecrescente ? ptsB - ptsA : ptsA - ptsB;
+                return parseInt(a.dataset.cartao || 0) - parseInt(b.dataset.cartao || 0);
+            });
+            linhas.forEach(l => tbody.appendChild(l));
+        }
+        window.onload = () => alternarOrdemAcertos();
+    </script>
+</body>
+</html>
