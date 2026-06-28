@@ -20,7 +20,7 @@ app.use((req, res, next) => {
 
 // CONEXÃO COM O SUPABASE
 // Localmente ele usará a String que você colar aqui. No Render, ele lerá a variável de ambiente DATABASE_URL automaticamente.
-const connectionString = process.env.DATABASE_URL || 'postgresql://postgres:zbMVCNrivne3D9LW@db.tokeibtjwekopmdftfqb.supabase.co:5432/postgres';
+const connectionString = process.env.DATABASE_URL || 'postgresql://postgres.tokeibtjwekopmdftfqb:zbMVCNrivne3D9LW@aws-1-sa-east-1.pooler.supabase.com:5432/postgres';
 
 const pool = new Pool({
     connectionString: connectionString,
