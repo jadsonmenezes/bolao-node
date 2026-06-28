@@ -13,39 +13,63 @@ app.set('views', './views');
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
+// Middleware para verificar quem está logado (Sempre inicia como visitante se não tiver o cookie correto)
 app.use((req, res, next) => {
-    res.locals.isAdmin = req.cookies.auth_token === 'admin_logado';
+    res.locals.isAdmin = false;
+    res.locals.usuarioLogado = null;
+    
+    if (req.cookies.auth_token) {
+        // O cookie conterá o "username" do usuário logado
+        res.locals.isAdmin = true;
+        res.locals.usuarioLogado = req.cookies.auth_token;
+    }
     next();
 });
 
-// CONEXÃO COM O SUPABASE
-// Localmente ele usará a String que você colar aqui. No Render, ele lerá a variável de ambiente DATABASE_URL automaticamente.
+// CONEXÃO COM O SUPABASE (Atualizada conforme enviado)
 const connectionString = process.env.DATABASE_URL || 'postgresql://postgres.tokeibtjwekopmdftfqb:zbMVCNrivne3D9LW@aws-1-sa-east-1.pooler.supabase.com:5432/postgres';
 
 const pool = new Pool({
     connectionString: connectionString,
-    ssl: { rejectUnauthorized: false } // Obrigatório para conexões seguras na nuvem (Supabase/Render)
+    ssl: { rejectUnauthorized: false }
 });
 
-// CRIAÇÃO DAS TABELAS NO POSTGRESQL (Sintaxe adaptada)
+// INICIALIZAÇÃO DO BANCO DE DADOS
 async function initDB() {
     const client = await pool.connect();
     try {
+        // Tabela de Edições
         await client.query(`CREATE TABLE IF NOT EXISTS edicoes (
             id SERIAL PRIMARY KEY, nome_bolao TEXT, numero INTEGER, data_inicio TEXT, 
             valor_aposta REAL, pct_admin REAL, pct_premio_principal REAL, pct_primeiro_sorteio REAL, 
             pct_proximos REAL, pct_doacao REAL, mostrar_admin BOOLEAN, status TEXT
         )`);
+        
+        // Tabela de Apostas
         await client.query(`CREATE TABLE IF NOT EXISTS apostas (
             id SERIAL PRIMARY KEY, edicao_id INTEGER, cartao INTEGER DEFAULT 0, 
             nome TEXT, dezenas TEXT, is_bonus BOOLEAN, pago BOOLEAN DEFAULT false, acertos INTEGER DEFAULT 0, 
             tem_erro INTEGER DEFAULT 0
         )`);
+        
+        // Tabela de Sorteios
         await client.query(`CREATE TABLE IF NOT EXISTS sorteios (
             id SERIAL PRIMARY KEY, edicao_id INTEGER, concurso INTEGER, dezenas TEXT, 
             data_lancamento TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )`);
+
+        // NOVA: Tabela de Usuários Administradores
+        await client.query(`CREATE TABLE IF NOT EXISTS usuarios (
+            id SERIAL PRIMARY KEY, username TEXT UNIQUE, senha TEXT
+        )`);
         
+        // Inserir usuário master padrão se não existir nenhum
+        const userRes = await client.query("SELECT id FROM usuarios WHERE username = 'admin'");
+        if (userRes.rows.length === 0) {
+            await client.query("INSERT INTO usuarios (username, senha) VALUES ('admin', 'beap@154')");
+        }
+
+        // Inserir edição padrão se vazio
         const res = await client.query("SELECT id FROM edicoes LIMIT 1");
         if (res.rows.length === 0) {
             await client.query("INSERT INTO edicoes (nome_bolao, numero, data_inicio, valor_aposta, pct_admin, pct_premio_principal, pct_primeiro_sorteio, pct_proximos, pct_doacao, mostrar_admin, status) VALUES ('Bolão Entre Amigos', 1, to_char(NOW(), 'YYYY-MM-DD'), 20.00, 15, 75, 7, 15, 3, true, 'aberta')");
@@ -84,7 +108,7 @@ async function getContextoEdicao(req, callback) {
 
 function checkAdmin(req, res, next) { if (!res.locals.isAdmin) return res.redirect('/login'); next(); }
 
-// RANKING PÚBLICO
+// RANKING PÚBLICO (Sempre abre como visitante, ordenado por acertos decrescente)
 app.get('/', (req, res) => {
     getContextoEdicao(req, async (err, ctx) => {
         if (!ctx || ctx.edicao.id === 0) return res.send("Nenhuma edição ativa encontrada.");
@@ -138,17 +162,63 @@ app.get('/', (req, res) => {
                 });
             }
 
+            // REQUISITO: Ordenar ranking por acertos do MAIOR para o MENOR. Se empatar, ordena pelo número do cartão.
+            ranking.sort((a, b) => {
+                if (b.accTot !== a.accTot) return b.accTot - a.accTot;
+                return a.cartao - b.cartao;
+            });
+
             res.render('index', { ranking, sorteios, todasDezenas, edicao: ctx.edicao, todasEdicoes: ctx.todasEdicoes, linkParams: ctx.linkParams, stats: { total: apostas.length, pagos: pagas, bonus: apostas.filter(a => a.is_bonus).length, arrecadacaoAtual, adminValor, fundoPremio, temSena } });
         } catch (e) { res.status(500).send(e.toString()); }
     });
 });
 
+// SISTEMA DE LOGIN DINÂMICO CONECTADO AO BANCO
 app.get('/login', (req, res) => res.render('login', { erro: false }));
-app.post('/login', (req, res) => {
-    if (req.body.senha === 'admin123') { res.cookie('auth_token', 'admin_logado', { maxAge: 86400000 }); res.redirect('/apostas'); }
-    else res.render('login', { erro: true });
+app.post('/login', async (req, res) => {
+    const { username, senha } = req.body;
+    try {
+        const result = await pool.query("SELECT * FROM usuarios WHERE username = $1 AND senha = $2", [username.trim(), senha.trim()]);
+        if (result.rows.length > 0) {
+            // Guarda o username no cookie para identificação
+            res.cookie('auth_token', result.rows[0].username, { maxAge: 86400000 }); 
+            res.redirect('/apostas');
+        } else {
+            res.render('login', { erro: true });
+        }
+    } catch (e) { res.status(500).send(e.toString()); }
 });
 app.get('/logout', (req, res) => { res.clearCookie('auth_token'); res.redirect('/'); });
+
+// ROTAS DE GERENCIAMENTO DE USUÁRIOS ADMINS
+app.get('/usuarios', checkAdmin, async (req, res) => {
+    getContextoEdicao(req, async (err, ctx) => {
+        try {
+            const users = (await pool.query("SELECT id, username FROM usuarios ORDER BY username ASC")).rows;
+            res.render('usuarios', { users, edicao: ctx.edicao, todasEdicoes: ctx.todasEdicoes, linkParams: ctx.linkParams });
+        } catch (e) { res.status(500).send(e.toString()); }
+    });
+});
+
+app.post('/usuarios/salvar', checkAdmin, async (req, res) => {
+    const { username, senha } = req.body;
+    try {
+        await pool.query("INSERT INTO usuarios (username, senha) VALUES ($1, $2) ON CONFLICT (username) DO UPDATE SET senha = $2", [username.trim(), senha.trim()]);
+        res.redirect('/usuarios');
+    } catch (e) { res.status(500).send(e.toString()); }
+});
+
+app.post('/usuarios/deletar/:id', checkAdmin, async (req, res) => {
+    try {
+        const user = (await pool.query("SELECT username FROM usuarios WHERE id = $1", [req.params.id])).rows[0];
+        // Proteção para não deletar o admin master logado
+        if (user && user.username === 'admin') {
+            return res.send("<script>alert('O usuario master admin nao pode ser deletado.'); window.location='/usuarios';</script>");
+        }
+        await pool.query("DELETE FROM usuarios WHERE id = $1", [req.params.id]);
+        res.redirect('/usuarios');
+    } catch (e) { res.status(500).send(e.toString()); }
+});
 
 // ADMIN - APOSTAS
 app.get('/apostas', checkAdmin, (req, res) => {
@@ -263,7 +333,7 @@ app.post('/edicoes/deletar/:id', checkAdmin, async (req, res) => {
     } catch (e) { res.status(500).send(e.toString()); }
 });
 
-// IMPORTADOR MANUAL VIA PLANILHA (Sintaxe PG)
+// IMPORTADOR MANUAL VIA PLANILHA
 app.post('/edicoes/importar', checkAdmin, upload.single('planilha'), (req, res) => {
     getContextoEdicao(req, async (err, ctx) => {
         if (!req.file || ctx.edicao.id === 0) return res.redirect(`/apostas${ctx.linkParams}`);
@@ -398,4 +468,4 @@ app.post('/sorteios/deletar/:id', checkAdmin, async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`🚀 Plataforma Online: Porto ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Plataforma Online no Supabase: http://localhost:${PORT}`));
