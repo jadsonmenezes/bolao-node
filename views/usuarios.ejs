@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Gerenciar Usuários Admin</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+</head>
+<body class="bg-light">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
+        <div class="container">
+            <a class="navbar-brand" href="#">Painel Admin - <%= edicao.nome_bolao %></a>
+            <div class="navbar-nav">
+                <a class="nav-link" href="/apostas<%= linkParams %>">Apostas</a>
+                <a class="nav-link" href="/sorteios<%= linkParams %>">Sorteios</a>
+                <a class="nav-link" href="/edicoes<%= linkParams %>">Edições</a>
+                <a class="nav-link active" href="/usuarios<%= linkParams %>">Usuários</a>
+                <a class="nav-link text-danger" href="/logout">Sair</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="row">
+            <div class="col-md-5 mb-4">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title">Criar / Atualizar Administrador</h5>
+                        <form action="/usuarios/salvar" method="POST">
+                            <div class="mb-3">
+                                <label class="form-label">Nome de Usuário (Login)</label>
+                                <input type="text" name="username" class="form-control" required placeholder="ex: claudio.suporte">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Senha</label>
+                                <input type="password" name="senha" class="form-control" required placeholder="Digite a senha">
+                            </div>
+                            <button type="submit" class="btn btn-primary w-100">Salvar Usuário</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-7">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title">Usuários Cadastrados</h5>
+                        <div class="table-responsive">
+                            <table class="table table-striped align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>Nome de Usuário</th>
+                                        <th class="text-end">Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <% users.forEach(user => { %>
+                                        <tr>
+                                            <td class="fw-bold text-secondary">@<%= user.username %></td>
+                                            <td class="text-end">
+                                                <% if(user.username !== 'admin') { %>
+                                                    <form action="/usuarios/deletar/<%= user.id %>" method="POST" style="display:inline;">
+                                                        <button class="btn btn-sm btn-outline-danger" onclick="return confirm('Deseja mesmo remover os acessos desse usuário?')">Remover Acesso</button>
+                                                    </form>
+                                                <% } else { %>
+                                                    <span class="badge bg-secondary">Master (Protegido)</span>
+                                                <% } %>
+                                            </td>
+                                        </tr>
+                                    <% }) %>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
