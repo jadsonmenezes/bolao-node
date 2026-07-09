@@ -3,77 +3,64 @@
 <head>
     <meta charset="UTF-8">
     <title>Gerenciar Usuários Admin</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-light">
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
-        <div class="container">
-            <a class="navbar-brand" href="#">Painel Admin - <%= edicao.nome_bolao %></a>
-            <div class="navbar-nav">
-                <a class="nav-link" href="/apostas<%= linkParams %>">Apostas</a>
-                <a class="nav-link" href="/sorteios<%= linkParams %>">Sorteios</a>
-                <a class="nav-link" href="/edicoes<%= linkParams %>">Edições</a>
-                <a class="nav-link active" href="/usuarios<%= linkParams %>">Usuários</a>
-                <a class="nav-link text-danger" href="/logout">Sair</a>
+<body class="bg-slate-50 font-sans text-slate-800 pb-12">
+    <nav class="bg-slate-900 text-white p-4 shadow-md sticky top-0 z-50">
+        <div class="container mx-auto flex justify-between items-center">
+            <h1 class="text-base font-bold truncate">Admin: Organizadores</h1>
+            <div class="space-x-4 text-sm font-semibold">
+                <a href="/<%= linkParams %>" class="text-slate-400 hover:text-white transition">Ranking</a>
+                <a href="/apostas<%= linkParams %>" class="text-slate-400 hover:text-white transition">Apostas</a>
+                <a href="/sorteios<%= linkParams %>" class="text-slate-400 hover:text-white transition">Sorteios</a>
+                <a href="/edicoes<%= linkParams %>" class="text-slate-400 hover:text-white transition">Edições</a>
+                <a href="/usuarios<%= linkParams %>" class="text-white border-b-2 border-white pb-1">Usuários</a>
             </div>
         </div>
     </nav>
 
-    <div class="container">
-        <div class="row">
-            <div class="col-md-5 mb-4">
-                <div class="card shadow-sm">
-                    <div class="card-body">
-                        <h5 class="card-title">Criar / Atualizar Administrador</h5>
-                        <form action="/usuarios/salvar" method="POST">
-                            <div class="mb-3">
-                                <label class="form-label">Nome de Usuário (Login)</label>
-                                <input type="text" name="username" class="form-control" required placeholder="ex: claudio.suporte">
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Senha</label>
-                                <input type="password" name="senha" class="form-control" required placeholder="Digite a senha">
-                            </div>
-                            <button type="submit" class="btn btn-primary w-100">Salvar Usuário</button>
-                        </form>
-                    </div>
+    <main class="container mx-auto p-4 mt-6 max-w-5xl grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div class="bg-white p-6 rounded-2xl shadow border col-span-1 h-fit">
+            <h3 class="font-black text-slate-800 text-lg mb-4 border-b pb-1">Novo Organizador</h3>
+            <form action="/usuarios/salvar" method="POST" class="space-y-4 text-xs font-bold uppercase tracking-wider text-slate-400">
+                <div>
+                    <label class="block text-slate-500 mb-1">Login do Usuário</label>
+                    <input type="text" name="username" required placeholder="Ex: carlo.suporte" class="w-full bg-slate-50 border rounded-lg p-3 text-slate-800 text-sm font-bold outline-none focus:ring-2 focus:ring-slate-900">
                 </div>
-            </div>
+                <div>
+                    <label class="block text-slate-500 mb-1">Chave de Acesso</label>
+                    <input type="password" name="senha" required placeholder="Defina a senha" class="w-full bg-slate-50 border rounded-lg p-3 text-slate-800 text-sm font-bold outline-none focus:ring-2 focus:ring-slate-900">
+                </div>
+                <button type="submit" class="w-full bg-slate-900 text-white py-3 rounded-xl uppercase tracking-wider shadow-md transition">Salvar Permissões</button>
+            </form>
+        </div>
 
-            <div class="col-md-7">
-                <div class="card shadow-sm">
-                    <div class="card-body">
-                        <h5 class="card-title">Usuários Cadastrados</h5>
-                        <div class="table-responsive">
-                            <table class="table table-striped align-middle">
-                                <thead>
-                                    <tr>
-                                        <th>Nome de Usuário</th>
-                                        <th class="text-end">Ações</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <% users.forEach(user => { %>
-                                        <tr>
-                                            <td class="fw-bold text-secondary">@<%= user.username %></td>
-                                            <td class="text-end">
-                                                <% if(user.username !== 'admin') { %>
-                                                    <form action="/usuarios/deletar/<%= user.id %>" method="POST" style="display:inline;">
-                                                        <button class="btn btn-sm btn-outline-danger" onclick="return confirm('Deseja mesmo remover os acessos desse usuário?')">Remover Acesso</button>
-                                                    </form>
-                                                <% } else { %>
-                                                    <span class="badge bg-secondary">Master (Protegido)</span>
-                                                <% } %>
-                                            </td>
-                                        </tr>
-                                    <% }) %>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
+        <div class="bg-white rounded-2xl shadow border col-span-2 p-6 overflow-hidden">
+            <h3 class="font-black text-slate-800 text-lg border-b pb-2 mb-4">Organizadores com Acesso</h3>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm border-collapse">
+                    <thead class="bg-slate-100 text-xs text-slate-400 uppercase tracking-wider border-b">
+                        <tr><th class="p-3">Usuário</th><th class="text-right p-3">Controles</th></tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        <% users.forEach(user => { %>
+                        <tr class="hover:bg-slate-50 transition">
+                            <td class="p-3 font-bold text-slate-700">@<%= user.username %></td>
+                            <td class="p-3 text-right">
+                                <% if(user.username !== 'admin') { %>
+                                    <form action="/usuarios/deletar/<%= user.id %>" method="POST" style="display:inline;">
+                                        <button class="text-red-500 bg-red-50 border border-red-200 px-2.5 py-1 rounded-md text-xs font-bold uppercase hover:bg-red-100" onclick="return confirm('Deseja cassar as permissões de acesso deste administrador?')">Remover</button>
+                                    </form>
+                                <% } else { %>
+                                    <span class="text-[10px] bg-slate-200 text-slate-600 px-2 py-1 rounded font-black uppercase">Mestre Master</span>
+                                <% } %>
+                            </td>
+                        </tr>
+                        <% }) %>
+                    </tbody>
+                </table>
             </div>
         </div>
-    </div>
+    </main>
 </body>
 </html>
