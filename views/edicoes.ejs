@@ -1,140 +1,229 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-br">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin: Gerenciar Edições</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>Gerenciamento de Edições - Painel Administrativo</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.1/css/all.min.css">
+    <style>
+        body { background-color: #f4f6f9; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .navbar { background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .card { border: none; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 24px; }
+        .card-header { background-color: #fff; border-bottom: 1px solid #eef2f5; font-weight: bold; color: #333; border-radius: 12px 12px 0 0 !important; }
+        .btn-primary { background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); border: none; }
+        .table thead th { border-top: none; background-color: #ebf0f6; color: #495057; }
+        .badge-aberta { background-color: #28a745; color: white; }
+        .badge-finalizada { background-color: #6c757d; color: white; }
+    </style>
 </head>
-<body class="bg-slate-50 font-sans text-slate-800 pb-12">
-    <nav class="bg-slate-900 text-white p-4 shadow-md">
-        <div class="container mx-auto flex justify-between items-center">
-            <h1 class="text-sm font-bold">Painel de Configurações</h1>
-            <div class="space-x-4 text-sm font-semibold">
-                <a href="/<%= linkParams %>" class="text-slate-400 hover:text-white transition">Ranking</a>
-                <a href="/apostas<%= linkParams %>" class="text-slate-400 hover:text-white transition">Apostas</a>
-                <a href="/edicoes<%= linkParams %>" class="text-white border-b-2 border-white pb-1">Edições</a>
+<body>
+
+<nav class="navbar navbar-expand-lg navbar-dark mb-4">
+    <div class="container">
+        <a class="navbar-brand" href="/"><i class="fas fa-trophy mr-2"></i> Painel Admin Bolão</a>
+        <div class="navbar-nav ml-auto">
+            <a class="nav-item nav-link" href="/apostas<%= linkParams %>"><i class="fas fa-ticket-alt mr-1"></i> Apostas</a>
+            <a class="nav-item nav-link" href="/sorteios<%= linkParams %>"><i class="fas fa-dice mr-1"></i> Sorteios</a>
+            <a class="nav-item nav-link active" href="/edicoes<%= linkParams %>"><i class="fas fa-cog mr-1"></i> Configurações</a>
+            <a class="nav-item nav-link" href="/usuarios"><i class="fas fa-users mr-1"></i> Usuários</a>
+            <a class="nav-item nav-link text-warning" href="/logout"><i class="fas fa-sign-out-alt"></i> Sair</a>
+        </div>
+    </div>
+</nav>
+
+<div class="container">
+    <div class="row">
+        <div class="col-md-5">
+            <div class="card">
+                <div class="card-header"><i class="fas fa-plus-circle mr-2"></i> Criar / Editar Edição de Bolão</div>
+                <div class="card-body">
+                    <form action="/edicoes/salvar" method="POST">
+                        <input type="hidden" name="id" id="form-id" value="0">
+                        
+                        <div class="form-group">
+                            <label>Nome do Bolão</label>
+                            <input type="text" name="nome_bolao" id="form-nome" class="form-control" required placeholder="Ex: Bolão Entre Amigos">
+                        </div>
+
+                        <div class="row">
+                            <div class="col-6">
+                                <div class="form-group">
+                                    <label>Modalidade</label>
+                                    <select name="tipo_bolao" id="form-tipo" class="form-control">
+                                        <option value="acumulativo">Acumulativo</option>
+                                        <option value="tiro_curto">Tiro Curto</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="form-group">
+                                    <label>Qtd Dezenas (Jogo)</label>
+                                    <input type="number" name="qtd_dezenas" id="form-dezenas" class="form-control" value="6" min="6" max="20" required>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-6">
+                                <div class="form-group">
+                                    <label>Data de Início</label>
+                                    <input type="date" name="data_inicio" id="form-data" class="form-control" required>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="form-group">
+                                    <label>Valor da Aposta (R$)</label>
+                                    <input type="number" step="0.01" name="valor_aposta" id="form-valor" class="form-control" value="20.00" required>
+                                </div>
+                            </div>
+                        </div>
+
+                        <hr>
+                        <h6 class="text-secondary font-weight-bold">Divisão de Percentuais (%)</h6>
+
+                        <div class="row">
+                            <div class="col-4">
+                                <div class="form-group"><label>Admin</label><input type="number" step="0.1" name="pct_admin" id="form-pct-admin" class="form-control" value="15" required></div>
+                            </div>
+                            <div class="col-4">
+                                <div class="form-group"><label>P. Principal</label><input type="number" step="0.1" name="pct_premio_principal" id="form-pct-principal" class="form-control" value="75" required></div>
+                            </div>
+                            <div class="col-4">
+                                <div class="form-group"><label>1º Sorteio</label><input type="number" step="0.1" name="pct_primeiro_sorteio" id="form-pct-primeiro" class="form-control" value="7" required></div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-6">
+                                <div class="form-group"><label>Rateios subsequentes</label><input type="number" step="0.1" name="pct_proximos" id="form-pct-proximos" class="form-control" value="15" required></div>
+                            </div>
+                            <div class="col-6">
+                                <div class="form-group"><label>Doações/Fundo</label><input type="number" step="0.1" name="pct_doacao" id="form-pct-doacao" class="form-control" value="3" required></div>
+                            </div>
+                        </div>
+
+                        <div class="form-group form-check">
+                            <input type="checkbox" name="mostrar_admin" id="form-mostrar-admin" class="form-check-input" checked>
+                            <label class="form-check-label">Mostrar Taxa de Administração Publicamente</label>
+                        </div>
+
+                        <div id="container-clonagem" class="form-group border p-2 rounded bg-light">
+                            <label class="font-weight-bold text-info" for="clonar_jogos_id"><i class="fas fa-copy mr-1"></i> Clonar Jogos de qual Edição anterior?</label>
+                            <select name="clonar_jogos_id" id="clonar_jogos_id" class="form-control">
+                                <option value="nao">-- Não clonar, iniciar bolão vazio --</option>
+                                <% todasEdicoes.forEach(function(ed) { %>
+                                    <option value="<%= ed.id %>">
+                                        Edição <%= ed.numero %> - <%= ed.nome_bolao %> (<%= ed.tipo_bolao === 'tiro_curto' ? 'Tiro Curto' : 'Acumulativo' %>)
+                                    </option>
+                                <% }); %>
+                            </select>
+                            <small class="text-muted d-block mt-1">Apenas aplicável ao criar novos registros. Selecione com atenção qual base de dados quer duplicar.</small>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary btn-block"><i class="fas fa-save mr-2"></i> Gravar Configurações</button>
+                        <button type="button" onclick="limparFormulario()" class="btn btn-light btn-block border mt-2">Limpar / Novo</button>
+                    </form>
+                </div>
             </div>
         </div>
-    </nav>
 
-    <main class="container mx-auto p-2 sm:p-4 mt-4 max-w-6xl grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div class="bg-white p-4 sm:p-5 rounded-2xl shadow border col-span-1 h-fit">
-            <h3 class="font-black text-slate-800 text-xs uppercase mb-3 border-b pb-1" id="titulo-form">Nova Rodada do Bolão</h3>
-            <form action="/edicoes/salvar" method="POST" id="form-edicao" class="space-y-4 text-xs font-bold text-slate-500 uppercase">
-                <input type="hidden" name="id" id="edicao-id" value="0">
-                
-                <div>
-                    <label class="block mb-1 text-[10px]">Nome Comercial do Bolão</label>
-                    <input type="text" name="nome_bolao" id="edicao-nome" required class="w-full bg-slate-50 border rounded-lg p-2.5 text-slate-800 text-xs">
+        <div class="col-md-7">
+            <div class="card">
+                <div class="card-header"><i class="fas fa-list mr-2"></i> Histórico de Edições Cadastradas</div>
+                <div class="table-responsive">
+                    <table class="table table-hover table-striped mb-0">
+                        <thead>
+                            <tr>
+                                <th>Nº</th>
+                                <th>Nome do Bolão / Tipo</th>
+                                <th>Início</th>
+                                <th>Valor</th>
+                                <th>Status</th>
+                                <th class="text-right">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <% edicoes.forEach(function(ed) { %>
+                                <tr style="<%= ed.id === edicao.id ? 'background-color: #ebf3ff; font-weight: bold;' : '' %>">
+                                    <td><%= ed.numero %></td>
+                                    <td>
+                                        <a href="/edicoes?edicao_id=<%= ed.id %>"><%= ed.nome_bolao %></a>
+                                        <span class="d-block text-muted small font-weight-normal">
+                                            Modo: <%= ed.tipo_bolao === 'tiro_curto' ? 'Tiro Curto' : 'Acumulativo' %> | <%= ed.qtd_dezenas %> dezenas
+                                        </span>
+                                    </td>
+                                    <td><%= ed.data_inicio %></td>
+                                    <td>R$ <%= ed.valor_aposta.toFixed(2) %></td>
+                                    <td>
+                                        <span class="badge badge-<%= ed.status %>"><%= ed.status.toUpperCase() %></span>
+                                    </td>
+                                    <td class="text-right">
+                                        <button class="btn btn-sm btn-info" onclick="editarCampos('<%= ed.id %>', '<%= ed.nome_bolao %>', '<%= ed.data_inicio %>', '<%= ed.valor_aposta %>', '<%= ed.pct_admin %>', '<%= ed.pct_premio_principal %>', '<%= ed.pct_primeiro_sorteio %>', '<%= ed.pct_proximos %>', '<%= ed.pct_doacao %>', <%= ed.mostrar_admin %>, '<%= ed.tipo_bolao %>', '<%= ed.qtd_dezenas %>')"><i class="fas fa-edit"></i></button>
+                                        <form action="/edicoes/deletar/<%= ed.id %>" method="POST" class="d-inline" onsubmit="return confirm('Mover este bolão para a lixeira?')">
+                                            <button class="btn btn-sm btn-danger"><i class="fas fa-trash-alt"></i></button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            <% }); %>
+                        </tbody>
+                    </table>
                 </div>
-                <div class="grid grid-cols-2 gap-2">
-                    <div>
-                        <label class="block mb-1 text-[10px]">Dezenas (6 ou 10)</label>
-                        <select name="qtd_dezenas" id="edicao-dezenas" class="w-full bg-slate-50 border rounded-lg p-2 text-slate-800 text-xs">
-                            <option value="6">6 (Mega)</option>
-                            <option value="10">10 (Tiro Curto)</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block mb-1 text-[10px]">Modelo de Regra</label>
-                        <select name="tipo_bolao" id="edicao-tipo" class="w-full bg-slate-50 border rounded-lg p-2 text-slate-800 text-xs">
-                            <option value="acumulativo">Acumulativo</option>
-                            <option value="tiro_curto">Tiro Curto (Único)</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="grid grid-cols-2 gap-2">
-                    <div>
-                        <label class="block mb-1 text-[10px]">Data Inicial</label>
-                        <input type="date" name="data_inicio" id="edicao-data" required class="w-full bg-slate-50 border rounded-lg p-2 text-slate-800 text-xs">
-                    </div>
-                    <div>
-                        <label class="block mb-1 text-[10px]">Custo Aposta (R$)</label>
-                        <input type="number" step="0.01" name="valor_aposta" id="edicao-valor" required class="w-full bg-slate-50 border rounded-lg p-2 text-slate-800 text-xs">
-                    </div>
-                </div>
-
-                <div class="bg-slate-50 p-3 rounded-xl border space-y-2.5">
-                    <span class="text-[9px] text-slate-400 tracking-wider font-black block border-b pb-0.5">Rateio Financeiro (%)</span>
-                    <div class="grid grid-cols-2 gap-2">
-                        <div><label class="text-[9px]">Admin</label><input type="number" name="pct_admin" id="edicao-p-admin" required class="w-full bg-white border rounded p-1.5 text-slate-800"></div>
-                        <div><label class="text-[9px]">Principal</label><input type="number" name="pct_premio_principal" id="edicao-p-principal" required class="w-full bg-white border rounded p-1.5 text-slate-800"></div>
-                        <div><label class="text-[9px]">1º Sorteio</label><input type="number" name="pct_primeiro_sorteio" id="edicao-p-sorteio" required class="w-full bg-white border rounded p-1.5 text-slate-800"></div>
-                        <div><label class="text-[9px]">Quina / Vice</label><input type="number" name="pct_proximos" id="edicao-p-proximos" required class="w-full bg-white border rounded p-1.5 text-slate-800"></div>
-                    </div>
-                    <div><label class="text-[9px]">Doação</label><input type="number" name="pct_doacao" id="edicao-p-doacao" required class="w-full bg-white border rounded p-1.5 text-slate-800"></div>
-                </div>
-
-                <div id="bloco-clonagem">
-                    <label class="block mb-1 text-[10px] text-indigo-600">Copiar jogos do bolão anterior?</label>
-                    <select name="clonar_jogos" class="w-full bg-indigo-50 border border-indigo-200 rounded-lg p-2 text-indigo-900 text-xs font-black">
-                        <option value="nao">Não, começar em branco</option>
-                        <option value="sim">Sim, clonar base de participantes</option>
-                    </select>
-                </div>
-
-                <button type="submit" class="w-full bg-slate-900 text-white py-3 rounded-xl font-black text-xs uppercase shadow-md tracking-wider">Gravar Configurações</button>
-                <button type="button" onclick="resetForm()" id="btn-cancelar" class="hidden w-full bg-slate-200 text-slate-600 py-2 rounded-xl text-xs">Sair da Edição</button>
-            </form>
-        </div>
-
-        <div class="bg-white p-4 sm:p-5 rounded-2xl shadow border col-span-1 lg:col-span-2">
-            <h3 class="font-black text-slate-800 text-sm uppercase mb-4">Rodadas Cadastradas</h3>
-            <div class="space-y-3">
-                <% edicoes.forEach(ed => { %>
-                    <div class="flex justify-between items-center p-3 border bg-slate-50 rounded-xl">
-                        <div>
-                            <span class="text-[9px] font-black uppercase px-2 py-0.5 rounded <%= ed.status === 'aberta' ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700' %>"><%= ed.status %></span>
-                            <h4 class="font-bold text-slate-800 text-sm mt-1">Rodada <%= ed.numero %>: <%= ed.nome_bolao %></h4>
-                            <span class="text-[10px] text-slate-400 font-bold"><%= ed.qtd_dezenas %> dezenas | Regra: <%= ed.tipo_bolao %></span>
-                        </div>
-                        <div class="flex items-center gap-1.5 text-[10px] font-bold uppercase">
-                            <button onclick="prepararEdicao('<%= ed.id %>', '<%= ed.nome_bolao %>', '<%= ed.qtd_dezenas %>', '<%= ed.tipo_bolao %>', '<%= ed.data_inicio %>', '<%= ed.valor_aposta %>', '<%= ed.pct_admin %>', '<%= ed.pct_premio_principal %>', '<%= ed.pct_primeiro_sorteio %>', '<%= ed.pct_proximos %>', '<%= ed.pct_doacao %>')" class="text-blue-600 bg-blue-50 border rounded px-2.5 py-1.5 hover:bg-blue-100">Configurar</button>
-                            <form action="/edicoes/deletar/<%= ed.id %>" method="POST" onsubmit="return confirm('Mover para a lixeira por 3 dias?');">
-                                <button type="submit" class="text-red-500 bg-red-50 border rounded px-2 py-1.5 hover:bg-red-100">Deletar</button>
-                            </form>
-                        </div>
-                    </div>
-                <% }) %>
             </div>
 
             <% if (lixeira && lixeira.length > 0) { %>
-                <div class="mt-8 bg-amber-50 p-4 rounded-xl border border-amber-200">
-                    <h4 class="font-black text-amber-800 text-[10px] uppercase tracking-wider mb-2.5 flex items-center gap-1">♻️ Lixeira de Segurança (Até 3 dias)</h4>
-                    <div class="space-y-2">
-                        <% lixeira.forEach(l => { %>
-                            <div class="flex justify-between items-center text-xs bg-white p-3 rounded-xl border shadow-sm">
-                                <div class="flex flex-col">
-                                    <span class="font-bold text-slate-700 text-xs">Rodada <%= l.numero %> - <%= l.nome_bolao %></span>
-                                    <span class="text-[9px] text-slate-400 font-bold">Excluído em: <%= new Date(l.deletado_em).toLocaleString('pt-BR') %></span>
-                                </div>
-                                <form action="/edicoes/restaurar/<%= l.id %>" method="POST">
-                                    <button type="submit" class="bg-amber-600 text-white font-black px-3 py-1.5 rounded-lg hover:bg-amber-700 text-[9px] uppercase tracking-wider shadow-sm transition">⚡ Desfazer Exclusão</button>
-                                </form>
-                            </div>
-                        <% }) %>
+                <div class="card mt-4 border-danger">
+                    <div class="card-header bg-danger text-white"><i class="fas fa-dumpster-fire mr-2"></i> Lixeira (Exclusão definitiva em 3 dias)</div>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover mb-0">
+                            <tbody>
+                                <% lixeira.forEach(function(lix) { %>
+                                    <tr>
+                                        <td class="pl-3">Edição <%= lix.numero %> - <%= lix.nome_bolao %></td>
+                                        <td class="text-right pr-3">
+                                            <form action="/edicoes/restaurar/<%= lix.id %>" method="POST" class="d-inline">
+                                                <button class="btn btn-xs btn-success py-0 px-2"><i class="fas fa-undo mr-1"></i> Restaurar</button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                <% }); %>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             <% } %>
         </div>
-    </main>
+    </div>
+</div>
 
-    <script>
-        function prepararEdicao(id, nome, dezenas, tipo, data, valor, admin, principal, sorteio, proximos, doacao) {
-            document.getElementById('titulo-form').innerText = "Alterar Configurações"; document.getElementById('edicao-id').value = id;
-            document.getElementById('edicao-nome').value = nome; document.getElementById('edicao-dezenas').value = dezenas;
-            document.getElementById('edicao-tipo').value = tipo; document.getElementById('edicao-data').value = data;
-            document.getElementById('edicao-valor').value = valor; document.getElementById('edicao-p-admin').value = admin;
-            document.getElementById('edicao-p-principal').value = principal; document.getElementById('edicao-p-sorteio').value = sorteio;
-            document.getElementById('edicao-p-proximos').value = proximos; document.getElementById('edicao-p-doacao').value = doacao;
-            document.getElementById('bloco-clonagem').classList.add('hidden'); document.getElementById('btn-cancelar').classList.remove('hidden');
-        }
-        function resetForm() {
-            document.getElementById('titulo-form').innerText = "Nova Rodada do Bolão"; document.getElementById('form-edicao').reset();
-            document.getElementById('edicao-id').value = "0"; document.getElementById('bloco-clonagem').classList.remove('hidden');
-            document.getElementById('btn-cancelar').classList.add('hidden');
-        }
-    </script>
+<script>
+function editarCampos(id, nome, data, valor, admin, principal, primeiro, proximos, doacao, mostrar, tipo, dezenas) {
+    document.getElementById('form-id').value = id;
+    document.getElementById('form-nome').value = nome;
+    document.getElementById('form-data').value = data;
+    document.getElementById('form-valor').value = valor;
+    document.getElementById('form-pct-admin').value = admin;
+    document.getElementById('form-pct-principal').value = principal;
+    document.getElementById('form-pct-primeiro').value = primeiro;
+    document.getElementById('form-pct-proximos').value = proximos;
+    document.getElementById('form-pct-doacao').value = doacao;
+    document.getElementById('form-mostrar-admin').checked = mostrar;
+    document.getElementById('form-tipo').value = tipo || 'acumulativo';
+    document.getElementById('form-dezenas').value = dezenas || 6;
+    
+    // Oculta a área de clonagem ao editar para evitar re-clonagens acidentais em bolões antigos
+    document.getElementById('container-clonagem').style.display = 'none';
+}
+
+function limparFormulario() {
+    document.getElementById('form-id').value = '0';
+    document.getElementById('form-nome').value = '';
+    document.getElementById('form-valor').value = '20.00';
+    document.getElementById('form-tipo').value = 'acumulativo';
+    document.getElementById('form-dezenas').value = '6';
+    document.getElementById('clonar_jogos_id').value = 'nao';
+    document.getElementById('container-clonagem').style.display = 'block';
+}
+</script>
 </body>
 </html>
