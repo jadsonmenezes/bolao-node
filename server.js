@@ -13,20 +13,18 @@ app.set('views', './views');
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-// Middleware para verificar quem está logado (Sempre inicia como visitante se não tiver o cookie correto)
+// Middleware de autenticação (Visitante por padrão)
 app.use((req, res, next) => {
     res.locals.isAdmin = false;
     res.locals.usuarioLogado = null;
-    
     if (req.cookies.auth_token) {
-        // O cookie conterá o "username" do usuário logado
         res.locals.isAdmin = true;
         res.locals.usuarioLogado = req.cookies.auth_token;
     }
     next();
 });
 
-// CONEXÃO COM O SUPABASE (Atualizada conforme enviado)
+// CONEXÃO COM O SUPABASE
 const connectionString = process.env.DATABASE_URL || 'postgresql://postgres.tokeibtjwekopmdftfqb:zbMVCNrivne3D9LW@aws-1-sa-east-1.pooler.supabase.com:5432/postgres';
 
 const pool = new Pool({
@@ -38,47 +36,42 @@ const pool = new Pool({
 async function initDB() {
     const client = await pool.connect();
     try {
-        // Tabela de Edições
         await client.query(`CREATE TABLE IF NOT EXISTS edicoes (
             id SERIAL PRIMARY KEY, nome_bolao TEXT, numero INTEGER, data_inicio TEXT, 
             valor_aposta REAL, pct_admin REAL, pct_premio_principal REAL, pct_primeiro_sorteio REAL, 
-            pct_proximos REAL, pct_doacao REAL, mostrar_admin BOOLEAN, status TEXT
+            pct_proximos REAL, pct_doacao REAL, mostrar_admin BOOLEAN, status TEXT,
+            tipo_bolao TEXT DEFAULT 'acumulativo', qtd_dezenas INTEGER DEFAULT 6
         )`);
         
-        // Tabela de Apostas
         await client.query(`CREATE TABLE IF NOT EXISTS apostas (
             id SERIAL PRIMARY KEY, edicao_id INTEGER, cartao INTEGER DEFAULT 0, 
             nome TEXT, dezenas TEXT, is_bonus BOOLEAN, pago BOOLEAN DEFAULT false, acertos INTEGER DEFAULT 0, 
             tem_erro INTEGER DEFAULT 0
         )`);
         
-        // Tabela de Sorteios
         await client.query(`CREATE TABLE IF NOT EXISTS sorteios (
             id SERIAL PRIMARY KEY, edicao_id INTEGER, concurso INTEGER, dezenas TEXT, 
             data_lancamento TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )`);
 
-        // NOVA: Tabela de Usuários Administradores
         await client.query(`CREATE TABLE IF NOT EXISTS usuarios (
             id SERIAL PRIMARY KEY, username TEXT UNIQUE, senha TEXT
         )`);
         
-        // Inserir usuário master padrão se não existir nenhum
         const userRes = await client.query("SELECT id FROM usuarios WHERE username = 'admin'");
         if (userRes.rows.length === 0) {
             await client.query("INSERT INTO usuarios (username, senha) VALUES ('admin', 'beap@154')");
         }
 
-        // Inserir edição padrão se vazio
         const res = await client.query("SELECT id FROM edicoes LIMIT 1");
         if (res.rows.length === 0) {
-            await client.query("INSERT INTO edicoes (nome_bolao, numero, data_inicio, valor_aposta, pct_admin, pct_premio_principal, pct_primeiro_sorteio, pct_proximos, pct_doacao, mostrar_admin, status) VALUES ('Bolão Entre Amigos', 1, to_char(NOW(), 'YYYY-MM-DD'), 20.00, 15, 75, 7, 15, 3, true, 'aberta')");
+            await client.query("INSERT INTO edicoes (nome_bolao, numero, data_inicio, valor_aposta, pct_admin, pct_premio_principal, pct_primeiro_sorteio, pct_proximos, pct_doacao, mostrar_admin, status, tipo_bolao, qtd_dezenas) VALUES ('Bolão Entre Amigos', 1, to_char(NOW(), 'YYYY-MM-DD'), 20.00, 15, 75, 7, 15, 3, true, 'aberta', 'acumulativo', 6)");
         }
     } finally {
         client.release();
     }
 }
-initDB().catch(err => console.error('Erro ao inicializar banco Supabase:', err));
+initDB().catch(err => console.error('Erro ao inicializar banco:', err));
 
 async function getContextoEdicao(req, callback) {
     try {
@@ -95,7 +88,7 @@ async function getContextoEdicao(req, callback) {
 
         if (!edicao) {
             return callback(null, { 
-                edicao: { id: 0, nome_bolao: 'Nenhum Bolão Ativo', numero: 0, data_inicio: '-', valor_aposta: 0, pct_admin: 0, pct_premio_principal: 0, pct_primeiro_sorteio: 0, pct_proximos: 0, pct_doacao: 0, mostrar_admin: false, status: 'finalizada' }, 
+                edicao: { id: 0, nome_bolao: 'Nenhum Bolão Ativo', numero: 0, data_inicio: '-', valor_aposta: 0, pct_admin: 0, pct_premio_principal: 0, pct_primeiro_sorteio: 0, pct_proximos: 0, pct_doacao: 0, mostrar_admin: false, status: 'finalizada', tipo_bolao: 'acumulativo', qtd_dezenas: 6 }, 
                 todasEdicoes: [], 
                 linkParams: '' 
             });
@@ -108,7 +101,7 @@ async function getContextoEdicao(req, callback) {
 
 function checkAdmin(req, res, next) { if (!res.locals.isAdmin) return res.redirect('/login'); next(); }
 
-// RANKING PÚBLICO (Sempre abre como visitante, ordenado por acertos decrescente)
+// RANKING PÚBLICO
 app.get('/', (req, res) => {
     getContextoEdicao(req, async (err, ctx) => {
         if (!ctx || ctx.edicao.id === 0) return res.send("Nenhuma edição ativa encontrada.");
@@ -136,51 +129,72 @@ app.get('/', (req, res) => {
                     if (dezenasPrimeiroSorteio.includes(d)) accPri++;
                 });
                 if (accPri > maxPriSorteio) maxPriSorteio = accPri;
-                if (accTot === 6) temSena = true;
+                if (ctx.edicao.tipo_bolao === 'acumulativo' && accTot === ctx.edicao.qtd_dezenas) temSena = true;
                 return { ...a, dezenas, accTot, accPri, premios: [], valorTotalPremio: 0 };
             });
 
-            if (temSena) ranking.forEach(r => { if (r.accTot < 6 && r.accTot > maxRateio) maxRateio = r.accTot; });
+            if (ctx.edicao.tipo_bolao === 'acumulativo') {
+                // Lógica Tradicional Acumulativa
+                if (temSena) ranking.forEach(r => { if (r.accTot < ctx.edicao.qtd_dezenas && r.accTot > maxRateio) maxRateio = r.accTot; });
 
-            if (sorteios.length > 0) {
-                const gPri = ranking.filter(r => r.accPri === maxPriSorteio);
-                gPri.forEach(g => {
-                    let v = (fundoPremio * (ctx.edicao.pct_primeiro_sorteio / 100)) / gPri.length;
-                    g.premios.push({ nome: '1º Sorteio', valor: v }); g.valorTotalPremio += v;
-                });
-            }
-            if (temSena) {
-                const gSena = ranking.filter(r => r.accTot === 6);
-                gSena.forEach(g => {
-                    let v = (fundoPremio * (ctx.edicao.pct_premio_principal / 100)) / gSena.length;
-                    g.premios.push({ nome: 'Prêmio Principal', valor: v }); g.valorTotalPremio += v;
-                });
-                const gRateio = ranking.filter(r => r.accTot === maxRateio);
-                gRateio.forEach(g => {
-                    let v = (fundoPremio * (ctx.edicao.pct_proximos / 100)) / gRateio.length;
-                    g.premios.push({ nome: `Rateio (${maxRateio} pts)`, valor: v }); g.valorTotalPremio += v;
-                });
+                if (sorteios.length > 0 && ctx.edicao.pct_primeiro_sorteio > 0) {
+                    const gPri = ranking.filter(r => r.accPri === maxPriSorteio);
+                    gPri.forEach(g => {
+                        let v = (fundoPremio * (ctx.edicao.pct_primeiro_sorteio / 100)) / gPri.length;
+                        g.premios.push({ nome: '1º Sorteio', valor: v }); g.valorTotalPremio += v;
+                    });
+                }
+                if (temSena) {
+                    const gSena = ranking.filter(r => r.accTot === ctx.edicao.qtd_dezenas);
+                    gSena.forEach(g => {
+                        let v = (fundoPremio * (ctx.edicao.pct_premio_principal / 100)) / gSena.length;
+                        g.premios.push({ nome: 'Prêmio Principal', valor: v }); g.valorTotalPremio += v;
+                    });
+                    const gRateio = ranking.filter(r => r.accTot === maxRateio);
+                    gRateio.forEach(g => {
+                        let v = (fundoPremio * (ctx.edicao.pct_proximos / 100)) / gRateio.length;
+                        g.premios.push({ nome: `Rateio (${maxRateio} pts)`, valor: v }); g.valorTotalPremio += v;
+                    });
+                }
+            } else {
+                // NOVA LÓGICA: TIRO CURTO (Maior pontuador da rodada única)
+                if (sorteios.length > 0 && ranking.length > 0) {
+                    let maiorPontuacao = Math.max(...ranking.map(r => r.accTot));
+                    let segundaMaiorPontuacao = Math.max(...ranking.filter(r => r.accTot < maiorPontuacao).map(r => r.accTot), 0);
+
+                    const gPrincipal = ranking.filter(r => r.accTot === maiorPontuacao);
+                    gPrincipal.forEach(g => {
+                        let v = (fundoPremio * (ctx.edicao.pct_premio_principal / 100)) / gPrincipal.length;
+                        g.premios.push({ nome: `Campeão (${maiorPontuacao} Pts)`, valor: v }); g.valorTotalPremio += v;
+                    });
+
+                    if (segundaMaiorPontuacao > 0 && ctx.edicao.pct_proximos > 0) {
+                        const gProximos = ranking.filter(r => r.accTot === segundaMaiorPontuacao);
+                        gProximos.forEach(g => {
+                            let v = (fundoPremio * (ctx.edicao.pct_proximos / 100)) / gProximos.length;
+                            g.premios.push({ nome: `Vice-Campeão (${segundaMaiorPontuacao} Pts)`, valor: v }); g.valorTotalPremio += v;
+                        });
+                    }
+                }
             }
 
-            // REQUISITO: Ordenar ranking por acertos do MAIOR para o MENOR. Se empatar, ordena pelo número do cartão.
+            // Ordenação padrão por acertos do MAIOR para o MENOR
             ranking.sort((a, b) => {
                 if (b.accTot !== a.accTot) return b.accTot - a.accTot;
                 return a.cartao - b.cartao;
             });
 
-            res.render('index', { ranking, sorteios, todasDezenas, edicao: ctx.edicao, todasEdicoes: ctx.todasEdicoes, linkParams: ctx.linkParams, stats: { total: apostas.length, pagos: pagas, bonus: apostas.filter(a => a.is_bonus).length, arrecadacaoAtual, adminValor, fundoPremio, temSena } });
+            res.render('index', { ranking, sorteios, todasDezenas, edicao: ctx.edicao, todasEdicoes: ctx.todasEdicoes, linkParams: ctx.linkParams, stats: { total: apostas.length, pagos: pagas, bonus: apostas.filter(a => a.is_bonus).length, arrecadacaoAtual, adminValor, fundoPremio, temSena: (ctx.edicao.tipo_bolao === 'tiro_curto' ? sorteios.length > 0 : temSena) } });
         } catch (e) { res.status(500).send(e.toString()); }
     });
 });
 
-// SISTEMA DE LOGIN DINÂMICO CONECTADO AO BANCO
 app.get('/login', (req, res) => res.render('login', { erro: false }));
 app.post('/login', async (req, res) => {
     const { username, senha } = req.body;
     try {
         const result = await pool.query("SELECT * FROM usuarios WHERE username = $1 AND senha = $2", [username.trim(), senha.trim()]);
         if (result.rows.length > 0) {
-            // Guarda o username no cookie para identificação
             res.cookie('auth_token', result.rows[0].username, { maxAge: 86400000 }); 
             res.redirect('/apostas');
         } else {
@@ -190,7 +204,7 @@ app.post('/login', async (req, res) => {
 });
 app.get('/logout', (req, res) => { res.clearCookie('auth_token'); res.redirect('/'); });
 
-// ROTAS DE GERENCIAMENTO DE USUÁRIOS ADMINS
+// ADMIN - USUARIOS
 app.get('/usuarios', checkAdmin, async (req, res) => {
     getContextoEdicao(req, async (err, ctx) => {
         try {
@@ -211,7 +225,6 @@ app.post('/usuarios/salvar', checkAdmin, async (req, res) => {
 app.post('/usuarios/deletar/:id', checkAdmin, async (req, res) => {
     try {
         const user = (await pool.query("SELECT username FROM usuarios WHERE id = $1", [req.params.id])).rows[0];
-        // Proteção para não deletar o admin master logado
         if (user && user.username === 'admin') {
             return res.send("<script>alert('O usuario master admin nao pode ser deletado.'); window.location='/usuarios';</script>");
         }
@@ -229,7 +242,7 @@ app.get('/apostas', checkAdmin, (req, res) => {
             const srt = (await pool.query(`SELECT COUNT(*) as count FROM sorteios WHERE edicao_id = $1`, [ctx.edicao.id])).rows[0];
             
             let edicaoTravada = srt ? parseInt(srt.count) > 0 : false;
-            let possuiSena = apostas.some(a => a.acertos >= 6);
+            let possuiSena = ctx.edicao.tipo_bolao === 'acumulativo' && apostas.some(a => a.acertos >= ctx.edicao.qtd_dezenas);
             
             const normais = apostas.filter(a => !a.is_bonus);
             const pagas = normais.filter(a => a.pago).length;
@@ -295,18 +308,20 @@ app.get('/edicoes', checkAdmin, (req, res) => {
 });
 
 app.post('/edicoes/salvar', checkAdmin, async (req, res) => {
-    const { id, nome_bolao, data_inicio, valor_aposta, pct_admin, pct_premio_principal, pct_primeiro_sorteio, pct_proximos, pct_doacao, mostrar_admin, clonar_jogos } = req.body;
+    const { id, nome_bolao, data_inicio, valor_aposta, pct_admin, pct_premio_principal, pct_primeiro_sorteio, pct_proximos, pct_doacao, mostrar_admin, clonar_jogos, tipo_bolao, qtd_dezenas } = req.body;
     const mAdmin = mostrar_admin === 'on';
+    const numDezenas = parseInt(qtd_dezenas) || 6;
+    const tipo = tipo_bolao || 'acumulativo';
     
     try {
         if (id && id !== '0') {
-            await pool.query(`UPDATE edicoes SET nome_bolao=$1, data_inicio=$2, valor_aposta=$3, pct_admin=$4, pct_premio_principal=$5, pct_primeiro_sorteio=$6, pct_proximos=$7, pct_doacao=$8, mostrar_admin=$9 WHERE id=$10`, [nome_bolao, data_inicio, valor_aposta, pct_admin, pct_premio_principal, pct_primeiro_sorteio, pct_proximos, pct_doacao, mAdmin, id]);
+            await pool.query(`UPDATE edicoes SET nome_bolao=$1, data_inicio=$2, valor_aposta=$3, pct_admin=$4, pct_premio_principal=$5, pct_primeiro_sorteio=$6, pct_proximos=$7, pct_doacao=$8, mostrar_admin=$9, tipo_bolao=$10, qtd_dezenas=$11 WHERE id=$12`, [nome_bolao, data_inicio, valor_aposta, pct_admin, pct_premio_principal, pct_primeiro_sorteio, pct_proximos, pct_doacao, mAdmin, tipo, numDezenas, id]);
             res.redirect(`/edicoes?edicao_id=${id}`);
         } else {
             const ult = (await pool.query("SELECT * FROM edicoes ORDER BY id DESC LIMIT 1")).rows[0];
             const proximoNumero = ult ? ult.numero + 1 : 1;
             
-            const insertRes = await pool.query(`INSERT INTO edicoes (nome_bolao, numero, data_inicio, valor_aposta, pct_admin, pct_premio_principal, pct_primeiro_sorteio, pct_proximos, pct_doacao, mostrar_admin, status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'aberta') RETURNING id`, [nome_bolao, proximoNumero, data_inicio, valor_aposta, pct_admin, pct_premio_principal, pct_primeiro_sorteio, pct_proximos, pct_doacao, mAdmin]);
+            const insertRes = await pool.query(`INSERT INTO edicoes (nome_bolao, numero, data_inicio, valor_aposta, pct_admin, pct_premio_principal, pct_primeiro_sorteio, pct_proximos, pct_doacao, mostrar_admin, status, tipo_bolao, qtd_dezenas) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'aberta', $11, $12) RETURNING id`, [nome_bolao, proximoNumero, data_inicio, valor_aposta, pct_admin, pct_premio_principal, pct_primeiro_sorteio, pct_proximos, pct_doacao, mAdmin, tipo, numDezenas]);
             const novaEdicaoId = insertRes.rows[0].id;
             
             if (ult) {
@@ -314,7 +329,14 @@ app.post('/edicoes/salvar', checkAdmin, async (req, res) => {
                 if (clonar_jogos === 'sim') {
                     const apostasAnteriores = (await pool.query("SELECT nome, dezenas, is_bonus, pago FROM apostas WHERE edicao_id = $1", [ult.id])).rows;
                     for (const ap of apostasAnteriores) {
-                        await pool.query(`INSERT INTO apostas (edicao_id, nome, dezenas, is_bonus, pago, acertos, tem_erro) VALUES ($1, $2, $3, $4, $5, 0, 0)`, [novaEdicaoId, ap.nome, ap.dezenas, ap.is_bonus, ap.pago]);
+                        let dezenasArray = JSON.parse(ap.dezenas);
+                        // Ajusta o array de dezenas dinamicamente caso mude de 6 para 10 ou vice-versa
+                        if (dezenasArray.length < numDezenas) {
+                            while(dezenasArray.length < numDezenas) dezenasArray.push(0);
+                        } else if (dezenasArray.length > numDezenas) {
+                            dezenasArray = dezenasArray.slice(0, numDezenas);
+                        }
+                        await pool.query(`INSERT INTO apostas (edicao_id, nome, dezenas, is_bonus, pago, acertos, tem_erro) VALUES ($1, $2, $3, $4, $5, 0, 0)`, [novaEdicaoId, ap.nome, JSON.stringify(dezenasArray), ap.is_bonus, ap.pago]);
                     }
                 }
             }
@@ -333,13 +355,16 @@ app.post('/edicoes/deletar/:id', checkAdmin, async (req, res) => {
     } catch (e) { res.status(500).send(e.toString()); }
 });
 
-// IMPORTADOR MANUAL VIA PLANILHA
+// IMPORTADOR DINÂMICO CONFORME CONFIGURAÇÃO DA RODADA
 app.post('/edicoes/importar', checkAdmin, upload.single('planilha'), (req, res) => {
     getContextoEdicao(req, async (err, ctx) => {
         if (!req.file || ctx.edicao.id === 0) return res.redirect(`/apostas${ctx.linkParams}`);
         const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
         const data = xlsx.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { header: 1 });
         
+        const limiteDezenas = ctx.edicao.qtd_dezenas; // 6 ou 10
+        const indiceMaxColuna = 2 + limiteDezenas;    // Mapeamento dinâmico na planilha
+
         try {
             for (const row of data) {
                 if (!row || row.length < 4) continue;
@@ -366,7 +391,7 @@ app.post('/edicoes/importar', checkAdmin, upload.single('planilha'), (req, res) 
                         }
                     }
                     
-                    if (idx >= 3 && idx <= 8) {
+                    if (idx >= 3 && idx <= colMaxIndice(limiteDezenas)) {
                         if (/[a-zA-Z]/g.test(strCell)) {
                             possuiErroDigitacao = 1;
                         }
@@ -379,18 +404,20 @@ app.post('/edicoes/importar', checkAdmin, upload.single('planilha'), (req, res) 
                     }
                 });
 
+                function colMaxIndice(qtd) { return 2 + qtd; }
+
                 if (nomeCandidate === "" && dezenasBrutas.length > 0) {
                     nomeCandidate = "PARTICIPANTE SEM NOME";
                     possuiErroDigitacao = 1;
                 }
 
                 if (nomeCandidate !== "" && nomeCandidate !== "PARTICIPANTE SEM NOME") {
-                    if (dezenasBrutas.length !== 6) possuiErroDigitacao = 1;
+                    if (dezenasBrutas.length !== limiteDezenas) possuiErroDigitacao = 1;
                     let dezenasUnicas = [...new Set(dezenasBrutas)];
                     if (dezenasUnicas.length !== dezenasBrutas.length) possuiErroDigitacao = 1;
                     if (dezenasBrutas.some(n => n < 1 || n > 60)) possuiErroDigitacao = 1;
 
-                    while (dezenasBrutas.length < 6) { dezenasBrutas.push(0); }
+                    while (dezenasBrutas.length < limiteDezenas) { dezenasBrutas.push(0); }
                     dezenasBrutas.sort((a, b) => a - b);
 
                     await pool.query(`INSERT INTO apostas (edicao_id, nome, dezenas, is_bonus, pago, acertos, tem_erro) VALUES ($1, $2, $3, $4, true, 0, $5)`, 
@@ -411,9 +438,12 @@ app.get('/sorteios', checkAdmin, (req, res) => {
             const sorteios = (sorteiosRows || []).map(s => ({ ...s, dezenas: JSON.parse(s.dezenas) }));
             const apInfo = (await pool.query(`SELECT MAX(acertos) as max_acertos FROM apostas WHERE edicao_id = $1`, [ctx.edicao.id])).rows[0];
             
-            let temSena = apInfo && apInfo.max_acertos >= 6;
-            if (temSena && ctx.edicao.status !== 'finalizada') {
+            let temSena = ctx.edicao.tipo_bolao === 'acumulativo' && apInfo && apInfo.max_acertos >= ctx.edicao.qtd_dezenas;
+            let tiroCurtoFinalizado = ctx.edicao.tipo_bolao === 'tiro_curto' && sorteios.length >= 1;
+
+            if ((temSena || tiroCurtoFinalizado) && ctx.edicao.status !== 'finalizada') {
                 await pool.query("UPDATE edicoes SET status = 'finalizada' WHERE id = $1", [ctx.edicao.id]);
+                ctx.edicao.status = 'finalizada';
             }
             
             const apRows = (await pool.query("SELECT pago, is_bonus FROM apostas WHERE edicao_id = $1", [ctx.edicao.id])).rows;
@@ -422,7 +452,7 @@ app.get('/sorteios', checkAdmin, (req, res) => {
             const pagas = apRows ? apRows.filter(r => !r.is_bonus && r.pago).length : 0;
             
             const stats = { total, pagas, pendentes: (total - bonus) - pagas, bonus, arrecadado: pagas * ctx.edicao.valor_aposta };
-            res.render('sorteios', { sorteios, temSena: (temSena || ctx.edicao.status === 'finalizada'), edicao: ctx.edicao, todasEdicoes: ctx.todasEdicoes, linkParams: ctx.linkParams, stats });
+            res.render('sorteios', { sorteios, temSena: (temSena || tiroCurtoFinalizado || ctx.edicao.status === 'finalizada'), edicao: ctx.edicao, todasEdicoes: ctx.todasEdicoes, linkParams: ctx.linkParams, stats });
         } catch (e) { res.status(500).send(e.toString()); }
     });
 });
@@ -454,6 +484,10 @@ app.post('/sorteios/novo', checkAdmin, async (req, res) => {
                 let hits = currentDezenas.filter(n => drawnNumbers.includes(n)).length;
                 await pool.query(`UPDATE apostas SET acertos = $1 WHERE id = $2`, [hits, ap.id]);
             }
+
+            if (ctx.edicao.tipo_bolao === 'tiro_curto') {
+                await pool.query("UPDATE edicoes SET status = 'finalizada' WHERE id = $1", [ctx.edicao.id]);
+            }
             
             res.redirect(`/sorteios${ctx.linkParams}`);
         } catch (e) { res.status(500).send(e.toString()); }
@@ -463,6 +497,7 @@ app.post('/sorteios/novo', checkAdmin, async (req, res) => {
 app.post('/sorteios/deletar/:id', checkAdmin, async (req, res) => {
     getContextoEdicao(req, async (err, ctx) => {
         await pool.query(`DELETE FROM sorteios WHERE id = $1`, [req.params.id]);
+        await pool.query("UPDATE edicoes SET status = 'aberta' WHERE id = $1", [ctx.edicao.id]);
         res.redirect(`/sorteios${ctx.linkParams}`);
     });
 });
