@@ -322,7 +322,7 @@ app.get('/edicoes', checkAdmin, (req, res) => {
 });
 
 app.post('/edicoes/salvar', checkAdmin, async (req, res) => {
-    const { id, nome_bolao, data_inicio, valor_aposta, pct_admin, pct_premio_principal, pct_primeiro_sorteio, pct_proximos, pct_doacao, mostrar_admin, clonar_jogos, tipo_bolao, qtd_dezenas } = req.body;
+    const { id, nome_bolao, data_inicio, valor_aposta, pct_admin, pct_premio_principal, pct_primeiro_sorteio, pct_proximos, pct_doacao, mostrar_admin, clonar_jogos_id, tipo_bolao, qtd_dezenas } = req.body;
     const mAdmin = mostrar_admin === 'on';
     const numDezenas = parseInt(qtd_dezenas) || 6;
     const tipo = tipo_bolao || 'acumulativo';
@@ -335,12 +335,12 @@ app.post('/edicoes/salvar', checkAdmin, async (req, res) => {
             const ult = (await pool.query("SELECT * FROM edicoes WHERE deletado_em IS NULL ORDER BY id DESC LIMIT 1")).rows[0];
             const proximoNumero = ult ? ult.numero + 1 : 1;
             
-            // CORREÇÃO MANTIDA: Salva e inicia em aberto sem forçar o fechamento de outras rodadas ativas
             const insertRes = await pool.query(`INSERT INTO edicoes (nome_bolao, numero, data_inicio, valor_aposta, pct_admin, pct_premio_principal, pct_primeiro_sorteio, pct_proximos, pct_doacao, mostrar_admin, status, tipo_bolao, qtd_dezenas) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'aberta', $11, $12) RETURNING id`, [nome_bolao, proximoNumero, data_inicio, valor_aposta, pct_admin, pct_premio_principal, pct_primeiro_sorteio, pct_proximos, pct_doacao, mAdmin, tipo, numDezenas]);
             const novaEdicaoId = insertRes.rows[0].id;
             
-            if (ult && clonar_jogos === 'sim') {
-                const apostasAnteriores = (await pool.query("SELECT nome, dezenas, is_bonus, pago FROM apostas WHERE edicao_id = $1", [ult.id])).rows;
+            // CLONAGEM SELETIVA DINÂMICA
+            if (clonar_jogos_id && clonar_jogos_id !== 'nao') {
+                const apostasAnteriores = (await pool.query("SELECT nome, dezenas, is_bonus, pago FROM apostas WHERE edicao_id = $1", [clonar_jogos_id])).rows;
                 for (const ap of apostasAnteriores) {
                     let dezenasArray = JSON.parse(ap.dezenas);
                     if (dezenasArray.length < numDezenas) {
@@ -458,8 +458,6 @@ app.get('/sorteios', checkAdmin, (req, res) => {
             const apInfo = (await pool.query(`SELECT MAX(acertos) as max_acertos FROM apostas WHERE edicao_id = $1`, [ctx.edicao.id])).rows[0];
             
             let temSena = ctx.edicao.tipo_bolao === 'acumulativo' && apInfo && apInfo.max_acertos >= ctx.edicao.qtd_dezenas;
-            
-            // CORREÇÃO: O bolão tiro curto agora só encerra quando houver de fato um sorteio específico DESTA edição cadastrado no banco.
             let tiroCurtoFinalizado = ctx.edicao.tipo_bolao === 'tiro_curto' && sorteios.length >= 1;
 
             if ((temSena || tiroCurtoFinalizado) && ctx.edicao.status !== 'finalizada') {
