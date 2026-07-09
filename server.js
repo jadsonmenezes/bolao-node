@@ -351,73 +351,86 @@ app.post('/edicoes/deletar/:id', checkAdmin, async (req, res) => {
     } catch (e) { res.status(500).send(e.toString()); }
 });
 
-// IMPORTADOR DINÂMICO COORDENADO E CORRIGIDO
+// IMPORTADOR À PROVA DE FALHAS (Leitura Fixa Posicional por Colunas)
 app.post('/edicoes/importar', checkAdmin, upload.single('planilha'), (req, res) => {
     getContextoEdicao(req, async (err, ctx) => {
         if (!req.file || ctx.edicao.id === 0) return res.redirect(`/apostas${ctx.linkParams}`);
+        
         const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
         const data = xlsx.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { header: 1 });
         
-        const limiteDezenas = ctx.edicao.qtd_dezenas; // 6 ou 10
-        const colMaxIndice = 2 + limiteDezenas; 
+        const limiteDezenas = parseInt(ctx.edicao.qtd_dezenas) || 6; 
 
         try {
             for (const row of data) {
-                if (!row || row.length < 4) continue;
+                // Linha precisa existir e ter dados mínimos preenchidos
+                if (!row || row.length < 3) continue;
                 
                 let nomeCandidate = "";
                 let dezenasBrutas = [];
                 let isBonus = false;
                 let possuiErroDigitacao = 0;
 
-                row.forEach((cell, idx) => {
-                    if (cell === undefined || cell === null) return;
-                    let strCell = String(cell).trim();
-                    if (strCell === "") return;
-
-                    let upper = strCell.toUpperCase();
-                    if (upper.includes("BÔNUS") || upper.includes("BONUS")) {
+                // 1. Procurar tag de BÔNUS de forma global na linha inteira para segurança
+                for (let i = 0; i < row.length; i++) {
+                    let val = String(row[i] || '').toUpperCase().trim();
+                    if (val.includes("BÔNUS") || val.includes("BONUS")) {
                         isBonus = true;
-                        return;
                     }
+                }
 
-                    if (idx === 2) {
-                        if (!upper.includes("PARTICIPANTE") && !upper.includes("MEGA") && isNaN(strCell)) {
-                            nomeCandidate = strCell;
-                        }
+                // 2. Coleta fixa na Coluna C (índice 2 do Array)
+                if (row[2] !== undefined && row[2] !== null) {
+                    let textNome = String(row[2]).trim();
+                    let upperNome = textNome.toUpperCase();
+                    if (textNome !== "" && !upperNome.includes("PARTICIPANTE") && !upperNome.includes("MEGA") && isNaN(textNome)) {
+                        nomeCandidate = textNome;
                     }
+                }
+
+                // Se não tem nome válido na coluna C, aborta a linha
+                if (!nomeCandidate) continue;
+
+                // 3. Coleta Fixa Posicional das Dezenas (Coluna D em diante)
+                // Se limiteDezenas for 6, lê de index 3 até index 8. Se for 10, lê de 3 até 12.
+                for (let col = 3; col < (3 + limiteDezenas); col++) {
+                    let cellVal = row[col];
                     
-                    if (idx >= 3 && idx <= colMaxIndice) {
-                        if (/[a-zA-Z]/g.test(strCell)) {
-                            possuiErroDigitacao = 1;
-                        }
-                        let num = parseInt(strCell.replace(/[^\d]/g, ''));
-                        if (!isNaN(num)) {
-                            dezenasBrutas.push(num);
-                        } else {
-                            possuiErroDigitacao = 1;
-                        }
+                    if (cellVal === undefined || cellVal === null || String(cellVal).trim() === "") {
+                        possuiErroDigitacao = 1;
+                        dezenasBrutas.push(0); // Preenche com zero para não deixar quebrar a estrutura
+                        continue;
                     }
-                });
 
-                if (nomeCandidate === "" && dezenasBrutas.length > 0) {
-                    nomeCandidate = "PARTICIPANTE SEM NOME";
+                    let strCell = String(cellVal).trim();
+                    if (/[a-zA-Z]/g.test(strCell)) {
+                        possuiErroDigitacao = 1;
+                    }
+
+                    let num = parseInt(strCell.replace(/[^\d]/g, ''));
+                    if (!isNaN(num) && num >= 1 && num <= 60) {
+                        dezenasBrutas.push(num);
+                    } else {
+                        possuiErroDigitacao = 1;
+                        dezenasBrutas.push(0);
+                    }
+                }
+
+                // 4. Verificação de Integridade das Dezenas coletadas
+                let dezenasValidas = dezenasBrutas.filter(n => n > 0);
+                let dezenasUnicas = [...new Set(dezenasValidas)];
+                if (dezenasUnicas.length !== dezenasValidas.length || dezenasValidas.length !== limiteDezenas) {
                     possuiErroDigitacao = 1;
                 }
 
-                if (nomeCandidate !== "" && nomeCandidate !== "PARTICIPANTE SEM NOME") {
-                    if (dezenasBrutas.length !== limiteDezenas) possuiErroDigitacao = 1;
-                    let dezenasUnicas = [...new Set(dezenasBrutas)];
-                    if (dezenasUnicas.length !== dezenasBrutas.length) possuiErroDigitacao = 1;
-                    if (dezenasBrutas.some(n => n < 1 || n > 60)) possuiErroDigitacao = 1;
+                // Completa o array se algo ficou faltando para salvar no banco estruturado
+                while (dezenasBrutas.length < limiteDezenas) { dezenasBrutas.push(0); }
+                dezenasBrutas.sort((a, b) => a - b);
 
-                    while (dezenasBrutas.length < limiteDezenas) { dezenasBrutas.push(0); }
-                    dezenasBrutas.sort((a, b) => a - b);
-
-                    await pool.query(`INSERT INTO apostas (edicao_id, nome, dezenas, is_bonus, pago, acertos, tem_erro) VALUES ($1, $2, $3, $4, true, 0, $5)`, 
-                        [ctx.edicao.id, nomeCandidate, JSON.stringify(dezenasBrutas), isBonus, possuiErroDigitacao]
-                    );
-                }
+                // 5. Inserção final no banco PostgreSQL
+                await pool.query(`INSERT INTO apostas (edicao_id, nome, dezenas, is_bonus, pago, acertos, tem_erro) VALUES ($1, $2, $3, $4, true, 0, $5)`, 
+                    [ctx.edicao.id, nomeCandidate, JSON.stringify(dezenasBrutas), isBonus, possuiErroDigitacao]
+                );
             }
             res.redirect(`/apostas${ctx.linkParams}`);
         } catch (e) { res.status(500).send(e.toString()); }
@@ -497,4 +510,4 @@ app.post('/sorteios/deletar/:id', checkAdmin, async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`🚀 Plataforma Online no Supabase: http://localhost:${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Plataforma Online: Porta ${PORT}`));
