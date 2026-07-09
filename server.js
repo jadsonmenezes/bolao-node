@@ -351,12 +351,12 @@ app.post('/edicoes/deletar/:id', checkAdmin, async (req, res) => {
     } catch (e) { res.status(500).send(e.toString()); }
 });
 
-// IMPORTADOR DIAGNÓSTICO AVANÇADO (Sintaxe Corrigida)
+// IMPORTADOR INTELIGENTE E ADAPTATIVO
 app.post('/edicoes/importar', checkAdmin, upload.single('planilha'), (req, res) => {
     getContextoEdicao(req, async (err, ctx) => {
         if (!req.file || ctx.edicao.id === 0) return res.redirect(`/apostas${ctx.linkParams}`);
         
-        console.log("=== INICIANDO IMPORTAÇÃO DE PLANILHA ===");
+        console.log("=== INICIANDO IMPORTAÇÃO DE PLANILHA INTELIGENTE ===");
         console.log(`Configuração Atual da Rodada: ID=${ctx.edicao.id}, Tipo=${ctx.edicao.tipo_bolao}, Dezenas Esperadas=${ctx.edicao.qtd_dezenas}`);
 
         try {
@@ -369,7 +369,10 @@ app.post('/edicoes/importar', checkAdmin, upload.single('planilha'), (req, res) 
 
             for (let rIdx = 0; rIdx < data.length; rIdx++) {
                 const row = data[rIdx];
-                if (!row || row.length < 3) continue;
+                // Ignora linhas totalmente vazias ou muito curtas
+                if (!row || row.filter(cell => cell !== undefined && cell !== null && String(cell).trim() !== "").length < 2) {
+                    continue;
+                }
                 
                 linhasProcessadas++;
                 let nomeCandidate = "";
@@ -377,12 +380,12 @@ app.post('/edicoes/importar', checkAdmin, upload.single('planilha'), (req, res) 
                 let isBonus = false;
                 let possuiErroDigitacao = 0;
 
-                // Diagnóstico: Logar conteúdo bruto de linhas iniciais para inspeção visual
-                if (rIdx < 8) {
-                    console.log(`Linha [${rIdx}] Conteúdo Bruto:`, JSON.stringify(row));
+                // Log de diagnóstico para as primeiras linhas
+                if (rIdx < 15) {
+                    console.log(`Linha [${rIdx}] Conteúdo Lido:`, JSON.stringify(row));
                 }
 
-                // 1. Tag de Bônus global
+                // 1. Verificar se a linha indica BÔNUS
                 for (let i = 0; i < row.length; i++) {
                     let val = String(row[i] || '').toUpperCase().trim();
                     if (val.includes("BÔNUS") || val.includes("BONUS")) {
@@ -390,64 +393,80 @@ app.post('/edicoes/importar', checkAdmin, upload.single('planilha'), (req, res) 
                     }
                 }
 
-                // 2. Captura do Nome na Coluna C (Index 2)
-                if (row[2] !== undefined && row[2] !== null) {
-                    let textNome = String(row[2]).trim();
-                    let upperNome = textNome.toUpperCase();
-                    if (textNome !== "" && !upperNome.includes("PARTICIPANTE") && !upperNome.includes("MEGA") && isNaN(textNome)) {
-                        nomeCandidate = textNome;
+                // 2. Localizar o Nome do Participante dinamicamente
+                // Procura a primeira célula de texto que não seja um número puro, nem cabeçalho padrão
+                for (let i = 0; i < row.length; i++) {
+                    if (row[i] !== undefined && row[i] !== null) {
+                        let cellStr = String(row[i]).trim();
+                        let upperCell = cellStr.toUpperCase();
+                        
+                        // Filtros de descarte para não pegar cabeçalhos
+                        if (cellStr === "" || isNaN(cellStr) === false) continue; 
+                        if (upperCell.includes("PARTICIPANTE") || upperCell.includes("MEGA") || upperCell.includes("NOME") || upperCell.includes("BOLETO") || upperCell.includes("BÔNUS") || upperCell.includes("BONUS") || upperCell.includes("VALOR")) {
+                            continue;
+                        }
+                        
+                        // Encontrou o primeiro texto válido da linha!
+                        nomeCandidate = cellStr;
+                        break;
                     }
                 }
 
-                if (!nomeCandidate) {
-                    if (rIdx < 15 && row.length > 3) {
-                        console.log(`Linha [${rIdx}] ignorada: Nome não identificado na Coluna C.`);
+                // 3. Capturar todas as dezenas disponíveis na linha
+                // Varre a linha inteira coletando todos os números válidos (1 a 60)
+                for (let i = 0; i < row.length; i++) {
+                    if (row[i] !== undefined && row[i] !== null) {
+                        let cellStr = String(row[i]).trim();
+                        // Se a célula contém letras misturadas com números, marca aviso de erro
+                        if (/[a-zA-Z]/g.test(cellStr) && !cellStr.toUpperCase().includes("BONUS") && !cellStr.toUpperCase().includes("BÔNUS")) {
+                            possuiErroDigitacao = 1;
+                        }
+                        
+                        let num = parseInt(cellStr.replace(/[^\d]/g, ''));
+                        if (!isNaN(num) && num >= 1 && num <= 60) {
+                            dezenasBrutas.push(num);
+                        }
                     }
+                }
+
+                // Se não achou um nome válido na linha, passa para a próxima
+                if (!nomeCandidate) {
+                    if (rIdx < 15) console.log(`Linha [${rIdx}] descartada: Nenhum nome de participante identificado.`);
                     continue;
                 }
 
-                // 3. Coleta Posicional das Dezenas (Coluna D em diante)
-                for (let col = 3; col < (3 + limiteDezenas); col++) {
-                    let cellVal = row[col];
-                    
-                    if (cellVal === undefined || cellVal === null || String(cellVal).trim() === "") {
-                        possuiErroDigitacao = 1;
-                        dezenasBrutas.push(0);
-                        continue;
-                    }
-
-                    let strCell = String(cellVal).trim();
-                    if (/[a-zA-Z]/g.test(strCell)) {
-                        possuiErroDigitacao = 1;
-                    }
-
-                    let num = parseInt(strCell.replace(/[^\d]/g, ''));
-                    if (!isNaN(num) && num >= 1 && num <= 60) {
-                        dezenasBrutas.push(num);
-                    } else {
-                        possuiErroDigitacao = 1;
-                        dezenasBrutas.push(0);
-                    }
+                // Se achou nome mas não achou nenhuma dezena, pula
+                if (dezenasBrutas.length === 0) {
+                    if (rIdx < 15) console.log(`Linha [${rIdx}] para ${nomeCandidate} descartada: Nenhuma dezena numérica encontrada.`);
+                    continue;
                 }
 
-                // 4. Validação das Dezenas coletadas
+                // 4. Tratamento e Ajuste do Limite de Dezenas (Preenche com 0 se faltar, corta se sobrar)
                 let dezenasValidas = dezenasBrutas.filter(n => n > 0);
                 let dezenasUnicas = [...new Set(dezenasValidas)];
+                
                 if (dezenasUnicas.length !== dezenasValidas.length || dezenasValidas.length !== limiteDezenas) {
                     possuiErroDigitacao = 1;
                 }
 
-                while (dezenasBrutas.length < limiteDezenas) { dezenasBrutas.push(0); }
+                // Ajusta o array para o tamanho exato configurado na rodada (6 ou 10)
+                if (dezenasBrutas.length > limiteDezenas) {
+                    dezenasBrutas = dezenasBrutas.slice(0, limiteDezenas);
+                } else {
+                    while (dezenasBrutas.length < limiteDezenas) {
+                        dezenasBrutas.push(0);
+                    }
+                }
                 dezenasBrutas.sort((a, b) => a - b);
 
-                // 5. Inserção final no banco PostgreSQL
+                // 5. Inserção no Banco
                 await pool.query(`INSERT INTO apostas (edicao_id, nome, dezenas, is_bonus, pago, acertos, tem_erro) VALUES ($1, $2, $3, $4, true, 0, $5)`, 
                     [ctx.edicao.id, nomeCandidate, JSON.stringify(dezenasBrutas), isBonus, possuiErroDigitacao]
                 );
                 linhasInseridasSucesso++;
             }
             
-            console.log(`=== FIM DO PROCESSAMENTO: ${linhasInseridasSucesso} de ${linhasProcessadas} linhas salvas com sucesso. ===`);
+            console.log(`=== FIM DO PROCESSAMENTO: ${linhasInseridasSucesso} de ${linhasProcessadas} linhas úteis salvas com sucesso. ===`);
             res.redirect(`/apostas${ctx.linkParams}`);
         } catch (e) { 
             console.error("❌ ERRO FATAL DURANTE A IMPORTAÇÃO:", e);
