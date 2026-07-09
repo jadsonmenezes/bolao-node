@@ -8,30 +8,29 @@
 <body class="bg-slate-50 font-sans text-slate-800 pb-12">
     <nav class="bg-slate-900 text-white p-4 shadow-md sticky top-0 z-50">
         <div class="container mx-auto flex justify-between items-center">
-            <h1 class="text-base font-bold truncate">Admin: Concursos</h1>
+            <h1 class="text-base font-bold truncate">Admin: Concursos (<%= edicao.tipo_bolao === 'tiro_curto' ? 'Rodada Única' : 'Acumulativo' %>)</h1>
             <div class="space-x-4 text-sm font-semibold">
                 <a href="/<%= linkParams %>" class="text-slate-400 hover:text-white transition">Ranking</a>
                 <a href="/apostas<%= linkParams %>" class="text-slate-400 hover:text-white transition">Apostas</a>
                 <a href="/sorteios<%= linkParams %>" class="text-white border-b-2 border-white pb-1">Sorteios</a>
                 <a href="/edicoes<%= linkParams %>" class="text-slate-400 hover:text-white transition">Edições</a>
-                <a class="nav-link" href="/usuarios<%= linkParams %>">Usuários</a>
-                <a class="nav-link text-danger" href="/logout">Sair</a>
+                <a href="/usuarios<%= linkParams %>" class="text-slate-400 hover:text-white transition">Usuários</a>
             </div>
         </div>
     </nav>
 
     <main class="container mx-auto p-4 mt-6 max-w-6xl grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div class="bg-white p-6 rounded-2xl shadow border col-span-1 h-fit">
-            <h3 class="font-black text-slate-800 text-lg mb-4 border-b pb-1">Novo Concurso</h3>
+            <h3 class="font-black text-slate-800 text-lg mb-4 border-b pb-1">Lançar Resultado Oficial</h3>
             <% if (temSena) { %>
-                <div class="p-4 bg-red-100 border-l-4 border-red-500 rounded-lg text-sm text-red-800 font-bold">🏆 EDIÇÃO FINALIZADA! O prêmio principal (6 acertos) já saiu. Lançamentos permanentemente bloqueados.</div>
+                <div class="p-4 bg-red-100 border-l-4 border-red-500 rounded-lg text-sm text-red-800 font-bold">🏆 RODADA FINALIZADA! O resultado oficial já foi apurado e esta edição foi encerrada no sistema. Operação bloqueada.</div>
             <% } else { %>
                 <form action="/sorteios/novo<%= linkParams %>" method="POST" class="space-y-4 text-xs font-bold uppercase tracking-wider text-slate-400">
-                    <div><label class="block text-slate-500 mb-1">Nº Oficial da Caixa</label><input type="number" name="concurso" required class="w-full bg-slate-50 border rounded-lg p-3 text-slate-800 text-sm font-bold outline-none focus:ring-2 focus:ring-blue-500"></div>
+                    <div><label class="block text-slate-500 mb-1">Nº Oficial do Concurso da Caixa</label><input type="number" name="concurso" required class="w-full bg-slate-50 border rounded-lg p-3 text-slate-800 text-sm font-bold outline-none focus:ring-2 focus:ring-blue-500"></div>
                     <div>
-                        <div class="flex justify-between items-end mb-2"><span class="text-slate-500">Marque as 6 Dezenas</span><span id="contador" class="text-sm">0/6</span></div>
-                        <div class="grid grid-cols-6 gap-1.5">
-                            <% for(let i=1; i<=60; i++) { %><button type="button" class="btn-dezena w-full aspect-square border rounded-md text-slate-600 font-bold transition" data-numero="<%= i %>"><%= i.toString().padStart(2, '0') %></button><% } %>
+                        <div class="flex justify-between items-end mb-2"><span class="text-slate-500">Marque as 6 Dezenas Oficial</span><span id="contador" class="text-sm">0/6</span></div>
+                        <div class="grid grid-cols-6 gap-1.5 max-h-[250px] overflow-y-auto border p-1 bg-slate-50 rounded-lg">
+                            <% for(let i=1; i<=60; i++) { %><button type="button" class="btn-dezena w-full aspect-square border rounded-md text-slate-600 font-bold text-xs transition" data-numero="<%= i %>"><%= i.toString().padStart(2, '0') %></button><% } %>
                         </div>
                         <input type="hidden" name="dezenas" id="input-dezenas" required>
                     </div>
@@ -41,13 +40,13 @@
         </div>
 
         <div class="bg-white rounded-2xl shadow border col-span-2 p-6">
-            <h3 class="font-black text-slate-800 text-lg border-b pb-2 mb-4">Histórico da Rodada</h3>
+            <h3 class="font-black text-slate-800 text-lg border-b pb-2 mb-4">Concursos Registrados</h3>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <% sorteios.forEach(s => { %>
                 <div class="bg-slate-50 rounded-xl shadow-inner p-4 border flex flex-col justify-between">
                     <div class="flex justify-between items-center mb-3 text-xs font-bold text-slate-400">
-                        <span>CONCURSO <%= s.concurso %></span>
-                        <% if (!temSena) { %><form action="/sorteios/deletar/<%= s.id %><%= linkParams %>" method="POST"><button class="text-red-500 hover:underline">Excluir</button></form><% } %>
+                        <span>CONCURSO CAIXA Nº <%= s.concurso %></span>
+                        <form action="/sorteios/deletar/<%= s.id %><%= linkParams %>" method="POST"><button class="text-red-500 hover:underline">Excluir</button></form>
                     </div>
                     <div class="flex gap-1.5 justify-center">
                         <% s.dezenas.forEach(d => { %><span class="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 text-white flex items-center justify-center font-bold text-sm shadow-md"><%= d.toString().padStart(2, '0') %></span><% }) %>
