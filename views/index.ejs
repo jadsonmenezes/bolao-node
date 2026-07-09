@@ -6,52 +6,60 @@
     <title><%= edicao.nome_bolao %></title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        .bolinha { background-color: #f1f5f9; color: #334155; font-weight: 700; width: 2.2rem; height: 2.2rem; display: inline-flex; align-items: center; justify-content: center; border: 1px solid #cbd5e1; font-size: 0.85rem; }
-        .bolinha.sorteada { background-color: #22c55e; color: white; border-color: #16a34a; box-shadow: 0 0 8px rgba(34, 197, 94, 0.5); }
+        .bolinha { background-color: #f1f5f9; color: #334155; font-weight: 700; width: 1.6rem; height: 1.6rem; display: inline-flex; align-items: center; justify-content: center; border: 1px solid #cbd5e1; font-size: 0.75rem; flex-shrink: 0; }
+        .bolinha.sorteada { background-color: #22c55e; color: white; border-color: #16a34a; box-shadow: 0 0 6px rgba(34, 197, 94, 0.4); }
     </style>
 </head>
 <body class="bg-slate-50 font-sans text-slate-800 pb-12">
     <nav class="bg-slate-900 text-white p-4 shadow-md sticky top-0 z-50">
-        <div class="container mx-auto flex justify-between items-center">
-            <h1 class="text-base font-bold truncate"><%= edicao.nome_bolao %> - Rodada nº <%= edicao.numero %></h1>
-            <% if (todasEdicoes.length > 1) { %>
-                <form action="/" method="GET" class="text-xs">
-                    <select name="edicao_id" onchange="this.form.submit()" class="bg-slate-800 text-white font-bold p-1.5 rounded border border-slate-700 outline-none">
-                        <% todasEdicoes.forEach(ed => { %>
-                            <option value="<%= ed.id %>" <%= ed.id == edicao.id ? 'selected' : '' %>>Rodada <%= ed.numero %></option>
-                        <% }) %>
-                    </select>
-                </form>
-            <% } %>
+        <div class="container mx-auto flex justify-between items-center gap-2">
+            <h1 class="text-sm sm:text-base font-bold truncate"><%= edicao.nome_bolao %></h1>
+            
+            <div class="space-x-2 sm:space-x-4 text-xs font-semibold flex items-center flex-shrink-0">
+                <a href="/<%= linkParams %>" class="text-white border-b-2 border-white pb-1">Ranking</a>
+                <% if (isAdmin) { %>
+                    <a href="/apostas<%= linkParams %>" class="text-slate-400 hover:text-white transition">Apostas</a>
+                    <a href="/sorteios<%= linkParams %>" class="text-slate-400 hover:text-white transition">Sorteios</a>
+                    <a href="/edicoes<%= linkParams %>" class="text-slate-400 hover:text-white transition">Edições</a>
+                <% } %>
+                
+                <% if (todasEdicoes.length > 1) { %>
+                    <form action="/" method="GET" class="inline-block ml-1">
+                        <select name="edicao_id" onchange="this.form.submit()" class="bg-slate-800 text-white font-bold p-1 text-[11px] rounded border border-slate-700 outline-none cursor-pointer">
+                            <% todasEdicoes.forEach(ed => { %>
+                                <option value="<%= ed.id %>" <%= ed.id == edicao.id ? 'selected' : '' %>>Rodada <%= ed.numero %></option>
+                            <% }) %>
+                        </select>
+                    </form>
+                <% } %>
+            </div>
         </div>
     </nav>
 
-    <main class="container mx-auto p-3 sm:p-4 mt-4 max-w-7xl">
-        <!-- Painel Financeiro e Informativo -->
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6 text-center text-[10px] font-bold uppercase tracking-wider text-slate-500">
-            <div class="bg-white p-3 rounded-xl shadow-sm border">Jogos Concorrendo: <span class="text-base block font-black text-slate-800"><%= stats.total %></span></div>
-            <div class="bg-white p-3 rounded-xl shadow-sm border">Prêmio Estimado: <span class="text-base block font-black text-green-600">R$ <%= stats.fundoPremio.toFixed(2) %></span></div>
+    <main class="container mx-auto p-2 sm:p-4 mt-4 max-w-7xl">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-2.5 mb-6 text-center text-[10px] font-bold uppercase tracking-wider text-slate-500">
+            <div class="bg-white p-3 rounded-xl shadow-sm border">Jogos Concorrendo: <span class="text-sm block font-black text-slate-800"><%= stats.total %></span></div>
+            <div class="bg-white p-3 rounded-xl shadow-sm border">Prêmio Estimado: <span class="text-sm block font-black text-green-600">R$ <%= stats.fundoPremio.toFixed(2) %></span></div>
             
             <% if (edicao.pct_doacao > 0) { %>
-                <div class="bg-white p-3 rounded-xl shadow-sm border">Doações Coletadas: <span class="text-base block font-black text-blue-600">R$ <%= (stats.arrecadacaoAtual * (edicao.pct_doacao / 100)).toFixed(2) %></span></div>
+                <div class="bg-white p-3 rounded-xl shadow-sm border">Doações Coletadas: <span class="text-sm block font-black text-blue-600">R$ <%= (stats.arrecadacaoAtual * (edicao.pct_doacao / 100)).toFixed(2) %></span></div>
             <% } else { %>
-                <div class="bg-white p-3 rounded-xl shadow-sm border">Arrecadado Real: <span class="text-base block font-black text-slate-700">R$ <%= stats.arrecadacaoAtual.toFixed(2) %></span></div>
+                <div class="bg-white p-3 rounded-xl shadow-sm border">Arrecadado Real: <span class="text-sm block font-black text-slate-700">R$ <%= stats.arrecadacaoAtual.toFixed(2) %></span></div>
             <% } %>
 
             <div class="bg-white p-3 rounded-xl shadow-sm border">Status do Bolão: 
-                <span class="text-xs block font-black uppercase mt-1 <%= edicao.status === 'aberta' ? 'text-blue-500 animate-pulse' : 'text-red-500' %>">
+                <span class="text-[11px] block font-black uppercase mt-0.5 <%= edicao.status === 'aberta' ? 'text-blue-500 animate-pulse' : 'text-red-500' %>">
                     <%= edicao.status === 'aberta' ? '🟢 Em Andamento' : '🔴 Encerrado' %>
                 </span>
             </div>
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <!-- Coluna da Esquerda: Resultados/Concursos -->
             <div class="space-y-4 col-span-1">
                 <div class="bg-white p-4 rounded-2xl shadow border">
-                    <h3 class="font-black text-slate-800 text-sm uppercase tracking-wider mb-3 border-b pb-1">Concursos Sorteados</h3>
+                    <h3 class="font-black text-slate-800 text-xs uppercase tracking-wider mb-3 border-b pb-1">Concursos Sorteados</h3>
                     <% if (sorteios.length === 0) { %>
-                        <p class="text-xs text-slate-400 font-medium py-4 text-center">Nenhum resultado oficial lançado ainda nesta rodada.</p>
+                        <p class="text-xs text-slate-400 font-medium py-4 text-center">Nenhum resultado oficial lançado ainda.</p>
                     <% } else { %>
                         <div class="space-y-3">
                             <% sorteios.forEach((s, idx) => { %>
@@ -60,9 +68,9 @@
                                         <span>Concurso nº <%= s.concurso %></span>
                                         <span class="text-indigo-600"><%= idx === 0 && edicao.pct_primeiro_sorteio > 0 ? '💥 1º Sorteio' : `${idx + 1}º Sorteio` %></span>
                                     </div>
-                                    <div class="flex flex-wrap gap-1 justify-center">
+                                    <div class="flex flex-row flex-wrap gap-1 justify-center">
                                         <% s.dezenas.forEach(d => { %>
-                                            <span class="w-7 h-7 rounded-full bg-gradient-to-br from-slate-700 to-slate-900 text-white flex items-center justify-center font-black text-xs shadow"><%= d.toString().padStart(2, '0') %></span>
+                                            <span class="w-6 h-6 rounded-full bg-gradient-to-br from-slate-700 to-slate-900 text-white flex items-center justify-center font-black text-[11px] shadow"><%= d.toString().padStart(2, '0') %></span>
                                         <% }) %>
                                     </div>
                                 </div>
@@ -72,21 +80,20 @@
                 </div>
             </div>
 
-            <!-- Coluna da Direita/Centro: O Ranking Geral dos Participantes -->
             <div class="bg-white rounded-2xl shadow border col-span-1 lg:col-span-2 overflow-hidden">
-                <div class="p-4 bg-slate-50 border-b flex justify-between items-center">
-                    <h3 class="font-black text-slate-800 text-sm uppercase tracking-wider">Classificação Atual dos Jogos</h3>
-                    <input type="text" id="busca-publica" placeholder="🔍 Buscar participante..." class="border rounded-xl px-3 py-1.5 text-xs bg-white outline-none w-48 sm:w-64 shadow-sm font-medium">
+                <div class="p-3 sm:p-4 bg-slate-50 border-b flex justify-between items-center gap-2">
+                    <h3 class="font-black text-slate-800 text-xs uppercase tracking-wider">Classificação</h3>
+                    <input type="text" id="busca-publica" placeholder="🔍 Buscar participante..." class="border rounded-xl px-3 py-1.5 text-xs bg-white outline-none w-44 sm:w-64 shadow-sm font-medium">
                 </div>
 
                 <div class="overflow-x-auto">
                     <table class="w-full text-left text-xs border-collapse" id="tabela-publica">
                         <thead class="bg-slate-100 text-[10px] text-slate-400 uppercase font-bold border-b sticky top-0">
                             <tr>
-                                <th class="p-3 text-center w-12">Nº</th>
-                                <th class="p-3">Participante</th>
+                                <th class="p-3 text-center w-10">Nº</th>
+                                <th class="p-3 min-w-[120px]">Participante</th>
                                 <th class="p-3 text-center">Dezenas Marcadas</th>
-                                <th class="p-3 text-center w-16">Acertos</th>
+                                <th class="p-3 text-center w-12">Acertos</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100 font-medium">
@@ -94,14 +101,13 @@
                                 <tr class="item-ranking hover:bg-slate-50 transition whitespace-nowrap" data-nome="<%= r.nome.toLowerCase() %>">
                                     <td class="p-3 text-center text-slate-400 font-bold text-[10px]">#<%= r.cartao || '-' %></td>
                                     <td class="p-3">
-                                        <div class="flex flex-col">
-                                            <span class="font-bold text-slate-800 text-xs flex items-center gap-1">
+                                        <div class="flex flex-col whitespace-normal break-words max-w-[140px] sm:max-w-none">
+                                            <span class="font-bold text-slate-800 text-xs flex flex-wrap items-center gap-1">
                                                 <%= r.nome %>
                                                 <% if (r.is_bonus) { %>
-                                                    <span class="bg-amber-100 text-amber-800 border border-amber-200 text-[8px] px-1 font-black rounded">BÔNUS</span>
+                                                    <span class="bg-amber-100 text-amber-800 border border-amber-200 text-[8px] px-1 font-black rounded flex-shrink-0">BÔNUS</span>
                                                 <% } %>
                                             </span>
-                                            <!-- Seção de Prêmios Dinâmicos: O prêmio só aparece se o jogador ganhou algo -->
                                             <% if (r.premios && r.premios.length > 0) { %>
                                                 <div class="flex flex-wrap gap-1 mt-0.5">
                                                     <% r.premios.forEach(pr => { %>
@@ -111,8 +117,9 @@
                                             <% } %>
                                         </div>
                                     </td>
-                                    <td class="p-3 text-center">
-                                        <div class="flex justify-center flex-wrap gap-0.5 max-w-[260px] mx-auto">
+                                    <td class="p-3">
+                                        <!-- CORREÇÃO: flex flex-row flex-wrap garante exibição horizontal nas bolinhas -->
+                                        <div class="flex flex-row flex-wrap justify-center items-center gap-0.5 max-w-[280px] mx-auto min-w-[120px]">
                                             <% r.dezenas.forEach(d => { %>
                                                 <span class="bolinha rounded-full <%= todasDezenas.includes(d) && d > 0 ? 'sorteada' : '' %>">
                                                     <%= d === 0 ? '!!' : d.toString().padStart(2, '0') %>
