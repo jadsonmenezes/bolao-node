@@ -351,15 +351,15 @@ app.post('/edicoes/deletar/:id', checkAdmin, async (req, res) => {
     } catch (e) { res.status(500).send(e.toString()); }
 });
 
-// IMPORTADOR CORRIGIDO E SEM ERROS DE ESCOPO
+// IMPORTADOR DINÂMICO COORDENADO E CORRIGIDO
 app.post('/edicoes/importar', checkAdmin, upload.single('planilha'), (req, res) => {
     getContextoEdicao(req, async (err, ctx) => {
         if (!req.file || ctx.edicao.id === 0) return res.redirect(`/apostas${ctx.linkParams}`);
         const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
         const data = xlsx.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { header: 1 });
         
-        const limiteDezenas = parseInt(ctx.edicao.qtd_dezenas) || 6;
-        const indiceMaxColuna = 2 + limiteDezenas; 
+        const limiteDezenas = ctx.edicao.qtd_dezenas; // 6 ou 10
+        const colMaxIndice = 2 + limiteDezenas; 
 
         try {
             for (const row of data) {
@@ -381,15 +381,13 @@ app.post('/edicoes/importar', checkAdmin, upload.single('planilha'), (req, res) 
                         return;
                     }
 
-                    // Nome do Participante sempre na Coluna C (Índice 2)
                     if (idx === 2) {
                         if (!upper.includes("PARTICIPANTE") && !upper.includes("MEGA") && isNaN(strCell)) {
                             nomeCandidate = strCell;
                         }
                     }
                     
-                    // Captura dinâmica das dezenas da coluna D (Índice 3) até o limite configurado
-                    if (idx >= 3 && idx <= indiceMaxColuna) {
+                    if (idx >= 3 && idx <= colMaxIndice) {
                         if (/[a-zA-Z]/g.test(strCell)) {
                             possuiErroDigitacao = 1;
                         }
