@@ -9,7 +9,7 @@
 <body class="bg-slate-50 font-sans text-slate-800 pb-12">
     <nav class="bg-slate-900 text-white p-4 shadow-md">
         <div class="container mx-auto flex justify-between items-center">
-            <h1 class="text-base font-bold">Painel de Edições e Configurações</h1>
+            <h1 class="text-sm font-bold">Painel de Configurações</h1>
             <div class="space-x-4 text-sm font-semibold">
                 <a href="/<%= linkParams %>" class="text-slate-400 hover:text-white transition">Ranking</a>
                 <a href="/apostas<%= linkParams %>" class="text-slate-400 hover:text-white transition">Apostas</a>
@@ -18,10 +18,9 @@
         </div>
     </nav>
 
-    <main class="container mx-auto p-3 sm:p-4 mt-4 max-w-6xl grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <!-- Criador e Editor de Edições -->
-        <div class="bg-white p-5 rounded-2xl shadow border col-span-1 h-fit">
-            <h3 class="font-black text-slate-800 text-sm uppercase mb-3 border-b pb-1" id="titulo-form">Nova Rodada do Bolão</h3>
+    <main class="container mx-auto p-2 sm:p-4 mt-4 max-w-6xl grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="bg-white p-4 sm:p-5 rounded-2xl shadow border col-span-1 h-fit">
+            <h3 class="font-black text-slate-800 text-xs uppercase mb-3 border-b pb-1" id="titulo-form">Nova Rodada do Bolão</h3>
             <form action="/edicoes/salvar" method="POST" id="form-edicao" class="space-y-4 text-xs font-bold text-slate-500 uppercase">
                 <input type="hidden" name="id" id="edicao-id" value="0">
                 
@@ -56,20 +55,19 @@
                     </div>
                 </div>
 
-                <!-- Divisão de Percentuais das Premiações -->
                 <div class="bg-slate-50 p-3 rounded-xl border space-y-2.5">
                     <span class="text-[9px] text-slate-400 tracking-wider font-black block border-b pb-0.5">Rateio Financeiro (%)</span>
                     <div class="grid grid-cols-2 gap-2">
                         <div><label class="text-[9px]">Admin</label><input type="number" name="pct_admin" id="edicao-p-admin" required class="w-full bg-white border rounded p-1.5 text-slate-800"></div>
-                        <div><label class="text-[9px]">Principal (Sena)</label><input type="number" name="pct_premio_principal" id="edicao-p-principal" required class="w-full bg-white border rounded p-1.5 text-slate-800"></div>
-                        <div><label class="text-[9px]">1º Sorteio (Mudar p/ 0 se Tiro Curto)</label><input type="number" name="pct_primeiro_sorteio" id="edicao-p-sorteio" required class="w-full bg-white border rounded p-1.5 text-slate-800"></div>
+                        <div><label class="text-[9px]">Principal</label><input type="number" name="pct_premio_principal" id="edicao-p-principal" required class="w-full bg-white border rounded p-1.5 text-slate-800"></div>
+                        <div><label class="text-[9px]">1º Sorteio</label><input type="number" name="pct_primeiro_sorteio" id="edicao-p-sorteio" required class="w-full bg-white border rounded p-1.5 text-slate-800"></div>
                         <div><label class="text-[9px]">Quina / Vice</label><input type="number" name="pct_proximos" id="edicao-p-proximos" required class="w-full bg-white border rounded p-1.5 text-slate-800"></div>
                     </div>
-                    <div><label class="text-[9px]">Doação / Caridade</label><input type="number" name="pct_doacao" id="edicao-p-doacao" required class="w-full bg-white border rounded p-1.5 text-slate-800"></div>
+                    <div><label class="text-[9px]">Doação</label><input type="number" name="pct_doacao" id="edicao-p-doacao" required class="w-full bg-white border rounded p-1.5 text-slate-800"></div>
                 </div>
 
                 <div id="bloco-clonagem">
-                    <label class="block mb-1 text-[10px] text-indigo-600">Copiar jogos da rodada anterior para esta nova?</label>
+                    <label class="block mb-1 text-[10px] text-indigo-600">Copiar jogos do bolão anterior?</label>
                     <select name="clonar_jogos" class="w-full bg-indigo-50 border border-indigo-200 rounded-lg p-2 text-indigo-900 text-xs font-black">
                         <option value="nao">Não, começar em branco</option>
                         <option value="sim">Sim, clonar base de participantes</option>
@@ -81,8 +79,7 @@
             </form>
         </div>
 
-        <!-- Lista de Edições Existentes -->
-        <div class="bg-white p-5 rounded-2xl shadow border col-span-1 lg:col-span-2">
+        <div class="bg-white p-4 sm:p-5 rounded-2xl shadow border col-span-1 lg:col-span-2">
             <h3 class="font-black text-slate-800 text-sm uppercase mb-4">Rodadas Cadastradas</h3>
             <div class="space-y-3">
                 <% edicoes.forEach(ed => { %>
@@ -94,7 +91,7 @@
                         </div>
                         <div class="flex items-center gap-1.5 text-[10px] font-bold uppercase">
                             <button onclick="prepararEdicao('<%= ed.id %>', '<%= ed.nome_bolao %>', '<%= ed.qtd_dezenas %>', '<%= ed.tipo_bolao %>', '<%= ed.data_inicio %>', '<%= ed.valor_aposta %>', '<%= ed.pct_admin %>', '<%= ed.pct_premio_principal %>', '<%= ed.pct_primeiro_sorteio %>', '<%= ed.pct_proximos %>', '<%= ed.pct_doacao %>')" class="text-blue-600 bg-blue-50 border rounded px-2.5 py-1.5 hover:bg-blue-100">Configurar</button>
-                            <form action="/edicoes/deletar/<%= ed.id %>" method="POST" onsubmit="return confirm('Deseja mover esta rodada para a lixeira por 3 dias?');">
+                            <form action="/edicoes/deletar/<%= ed.id %>" method="POST" onsubmit="return confirm('Mover para a lixeira por 3 dias?');">
                                 <button type="submit" class="text-red-500 bg-red-50 border rounded px-2 py-1.5 hover:bg-red-100">Deletar</button>
                             </form>
                         </div>
@@ -102,16 +99,15 @@
                 <% }) %>
             </div>
 
-            <!-- SOLICITAÇÃO COMPORTAMENTAL: LIXEIRA DE SEGURANÇA INTERNA DE 3 DIAS -->
             <% if (lixeira && lixeira.length > 0) { %>
                 <div class="mt-8 bg-amber-50 p-4 rounded-xl border border-amber-200">
-                    <h4 class="font-black text-amber-800 text-[10px] uppercase tracking-wider mb-2.5 flex items-center gap-1">♻️ Lixeira de Segurança (Reversível por até 3 dias)</h4>
+                    <h4 class="font-black text-amber-800 text-[10px] uppercase tracking-wider mb-2.5 flex items-center gap-1">♻️ Lixeira de Segurança (Até 3 dias)</h4>
                     <div class="space-y-2">
                         <% lixeira.forEach(l => { %>
                             <div class="flex justify-between items-center text-xs bg-white p-3 rounded-xl border shadow-sm">
                                 <div class="flex flex-col">
                                     <span class="font-bold text-slate-700 text-xs">Rodada <%= l.numero %> - <%= l.nome_bolao %></span>
-                                    <span class="text-[9px] text-slate-400 font-bold">Mover para lixeira em: <%= new Date(l.deletado_em).toLocaleString('pt-BR') %></span>
+                                    <span class="text-[9px] text-slate-400 font-bold">Excluído em: <%= new Date(l.deletado_em).toLocaleString('pt-BR') %></span>
                                 </div>
                                 <form action="/edicoes/restaurar/<%= l.id %>" method="POST">
                                     <button type="submit" class="bg-amber-600 text-white font-black px-3 py-1.5 rounded-lg hover:bg-amber-700 text-[9px] uppercase tracking-wider shadow-sm transition">⚡ Desfazer Exclusão</button>
