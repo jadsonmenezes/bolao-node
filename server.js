@@ -134,7 +134,6 @@ app.get('/', (req, res) => {
             });
 
             if (ctx.edicao.tipo_bolao === 'acumulativo') {
-                // Lógica Tradicional Acumulativa
                 if (temSena) ranking.forEach(r => { if (r.accTot < ctx.edicao.qtd_dezenas && r.accTot > maxRateio) maxRateio = r.accTot; });
 
                 if (sorteios.length > 0 && ctx.edicao.pct_primeiro_sorteio > 0) {
@@ -157,7 +156,6 @@ app.get('/', (req, res) => {
                     });
                 }
             } else {
-                // NOVA LÓGICA: TIRO CURTO (Maior pontuador da rodada única)
                 if (sorteios.length > 0 && ranking.length > 0) {
                     let maiorPontuacao = Math.max(...ranking.map(r => r.accTot));
                     let segundaMaiorPontuacao = Math.max(...ranking.filter(r => r.accTot < maiorPontuacao).map(r => r.accTot), 0);
@@ -178,7 +176,6 @@ app.get('/', (req, res) => {
                 }
             }
 
-            // Ordenação padrão por acertos do MAIOR para o MENOR
             ranking.sort((a, b) => {
                 if (b.accTot !== a.accTot) return b.accTot - a.accTot;
                 return a.cartao - b.cartao;
@@ -330,7 +327,6 @@ app.post('/edicoes/salvar', checkAdmin, async (req, res) => {
                     const apostasAnteriores = (await pool.query("SELECT nome, dezenas, is_bonus, pago FROM apostas WHERE edicao_id = $1", [ult.id])).rows;
                     for (const ap of apostasAnteriores) {
                         let dezenasArray = JSON.parse(ap.dezenas);
-                        // Ajusta o array de dezenas dinamicamente caso mude de 6 para 10 ou vice-versa
                         if (dezenasArray.length < numDezenas) {
                             while(dezenasArray.length < numDezenas) dezenasArray.push(0);
                         } else if (dezenasArray.length > numDezenas) {
@@ -355,7 +351,7 @@ app.post('/edicoes/deletar/:id', checkAdmin, async (req, res) => {
     } catch (e) { res.status(500).send(e.toString()); }
 });
 
-// IMPORTADOR DINÂMICO CONFORME CONFIGURAÇÃO DA RODADA
+// IMPORTADOR DINÂMICO COORDENADO E CORRIGIDO
 app.post('/edicoes/importar', checkAdmin, upload.single('planilha'), (req, res) => {
     getContextoEdicao(req, async (err, ctx) => {
         if (!req.file || ctx.edicao.id === 0) return res.redirect(`/apostas${ctx.linkParams}`);
@@ -363,7 +359,7 @@ app.post('/edicoes/importar', checkAdmin, upload.single('planilha'), (req, res) 
         const data = xlsx.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { header: 1 });
         
         const limiteDezenas = ctx.edicao.qtd_dezenas; // 6 ou 10
-        const indiceMaxColuna = 2 + limiteDezenas;    // Mapeamento dinâmico na planilha
+        const colMaxIndice = 2 + limiteDezenas; 
 
         try {
             for (const row of data) {
@@ -391,7 +387,7 @@ app.post('/edicoes/importar', checkAdmin, upload.single('planilha'), (req, res) 
                         }
                     }
                     
-                    if (idx >= 3 && idx <= colMaxIndice(limiteDezenas)) {
+                    if (idx >= 3 && idx <= colMaxIndice) {
                         if (/[a-zA-Z]/g.test(strCell)) {
                             possuiErroDigitacao = 1;
                         }
@@ -403,8 +399,6 @@ app.post('/edicoes/importar', checkAdmin, upload.single('planilha'), (req, res) 
                         }
                     }
                 });
-
-                function colMaxIndice(qtd) { return 2 + qtd; }
 
                 if (nomeCandidate === "" && dezenasBrutas.length > 0) {
                     nomeCandidate = "PARTICIPANTE SEM NOME";
