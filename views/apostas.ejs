@@ -4,50 +4,55 @@
     <meta charset="UTF-8"><title>Admin: Apostas</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        .btn-volante.selected { background-color: #0f172a; color: white; border-color: #0f172a; transform: scale(1.08); }
+        .btn-volante.selected { background-color: #0f172a; color: white; border-color: #0f172a; transform: scale(1.1); font-weight: 900; }
         .btn-status-filter.active { background-color: #0f172a; color: white; }
-        .bolinha-tabela { background-color: #f8fafc; color: #475569; border: 1px solid #cbd5e1; font-weight: 700; width: 2.1rem; height: 2.1rem; display: inline-flex; align-items: center; justify-content: center; font-size: 0.8rem; }
+        .bolinha-tabela { background-color: #f8fafc; color: #475569; border: 1px solid #cbd5e1; font-weight: 700; width: 1.8rem; height: 1.8rem; display: inline-flex; align-items: center; justify-content: center; font-size: 0.75rem; }
     </style>
 </head>
 <body class="bg-slate-50 font-sans text-slate-800 pb-12">
     <nav class="bg-slate-900 text-white p-4 shadow-md sticky top-0 z-50">
         <div class="container mx-auto flex justify-between items-center">
             <h1 class="text-base font-bold truncate">Admin: <%= edicao.nome_bolao %></h1>
-            <div class="space-x-4 text-sm font-semibold">
-                <a href="/<%= linkParams %>" class="text-slate-400 hover:text-white transition">Ranking</a>
+            <div class="space-x-4 text-sm font-semibold flex items-center">
+                <a href="/<%= linkParams %>" class="text-slate-400 hover:text-white transition hidden sm:inline">Ranking</a>
                 <a href="/apostas<%= linkParams %>" class="text-white border-b-2 border-white pb-1">Apostas</a>
                 <a href="/sorteios<%= linkParams %>" class="text-slate-400 hover:text-white transition">Sorteios</a>
                 <a href="/edicoes<%= linkParams %>" class="text-slate-400 hover:text-white transition">Edições</a>
-                <a href="/usuarios<%= linkParams %>" class="text-slate-400 hover:text-white transition">Usuários</a>
+                <a href="/usuarios<%= linkParams %>" class="text-slate-400 hover:text-white transition hidden sm:inline">Usuários</a>
             </div>
         </div>
     </nav>
 
-    <main class="container mx-auto p-4 mt-6 max-w-7xl">
-        <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6 text-center text-xs font-bold uppercase tracking-wider text-slate-500">
-            <div class="bg-white p-4 rounded-xl shadow-sm border">Jogos Cadastrados: <span class="text-lg block font-black text-slate-800"><%= stats.total %></span></div>
-            <div class="bg-white p-4 rounded-xl shadow-sm border">Pagos / Pend: <span class="text-lg block font-black"><span class="text-green-600"><%= stats.pagas %></span> / <span class="text-red-500"><%= stats.pendentes %></span></span></div>
-            <div class="bg-white p-4 rounded-xl shadow-sm border">Bônus: <span class="text-lg block font-black text-amber-500"><%= stats.bonus %></span></div>
-            <div class="bg-white p-4 rounded-xl shadow-sm border">Caixa Líquido: <span class="text-lg block font-black text-green-600">R$ <%= stats.arrecadado.toFixed(2) %></span></div>
-            <div class="bg-white p-4 rounded-xl shadow-sm border">Projeção Total: <span class="text-lg block font-black text-slate-400">R$ <%= stats.previsto.toFixed(2) %></span></div>
+    <main class="container mx-auto p-2 sm:p-4 mt-4 max-w-7xl">
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-2 sm:gap-4 mb-6 text-center text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-500">
+            <div class="bg-white p-3 rounded-xl shadow-sm border">Jogos: <span class="text-base block font-black text-slate-800"><%= stats.total %></span></div>
+            <div class="bg-white p-3 rounded-xl shadow-sm border">Pagos / Pend: <span class="text-base block font-black"><span class="text-green-600"><%= stats.pagas %></span> / <span class="text-red-500"><%= stats.pendentes %></span></span></div>
+            <div class="bg-white p-3 rounded-xl shadow-sm border">Bônus: <span class="text-base block font-black text-amber-500"><%= stats.bonus %></span></div>
+            <div class="bg-white p-3 rounded-xl shadow-sm border">Caixa Líquido: <span class="text-base block font-black text-green-600">R$ <%= stats.arrecadado.toFixed(2) %></span></div>
+            <div class="bg-white p-3 rounded-xl shadow-sm border hidden md:block">Projeção: <span class="text-base block font-black text-slate-400">R$ <%= stats.previsto.toFixed(2) %></span></div>
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div class="bg-white p-6 rounded-2xl shadow border col-span-1 h-fit sticky top-24">
-                <h3 class="font-black text-gray-800 text-lg mb-4 border-b pb-1" id="form-titulo">Novo Bilhete Manual</h3>
+            <div class="bg-white p-4 sm:p-6 rounded-2xl shadow border col-span-1 h-fit lg:sticky lg:top-24">
+                <h3 class="font-black text-gray-800 text-base mb-3 border-b pb-1" id="form-titulo">Novo Bilhete Manual</h3>
                 <% if (edicaoTravada) { %>
-                    <p class="text-sm bg-red-50 p-3 rounded border border-red-200 text-red-600 font-bold">Edição encerrada ou sorteios iniciados. Cadastro bloqueado.</p>
+                    <p class="text-xs bg-red-50 p-3 rounded border border-red-200 text-red-600 font-bold">Edição encerrada ou sorteios iniciados. Cadastro bloqueado.</p>
                 <% } else { %>
                     <form action="/apostas/salvar<%= linkParams %>" method="POST" id="form-aposta" class="space-y-4 text-xs font-bold">
                         <input type="hidden" name="id" id="aposta-id">
                         <div>
-                            <label class="block text-slate-400 mb-1 uppercase tracking-widest">Nome do Jogador</label>
-                            <input type="text" name="nome" id="aposta-nome" required class="w-full bg-slate-50 border rounded-lg p-3 outline-none focus:ring-2 focus:ring-slate-900 text-sm font-bold text-slate-800">
+                            <label class="block text-slate-400 mb-1 uppercase tracking-widest text-[10px]">Nome do Jogador</label>
+                            <input type="text" name="nome" id="aposta-nome" required class="w-full bg-slate-50 border rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-slate-900 text-sm font-bold text-slate-800">
                         </div>
                         <div>
-                            <div class="flex justify-between items-end mb-2"><span class="text-slate-400 uppercase tracking-widest">Marque as <span class="text-indigo-600 font-black" id="label-necessarias"><%= edicao.qtd_dezenas %></span> Dezenas</span><span id="contador" class="text-sm text-slate-400">0/<%= edicao.qtd_dezenas %></span></div>
-                            <div class="grid grid-cols-6 gap-1.5 max-h-[300px] overflow-y-auto p-1 border rounded-lg bg-slate-50">
-                                <% for(let i=1; i<=60; i++) { %><button type="button" class="btn-volante w-full aspect-square border rounded-md font-bold text-slate-600 hover:bg-slate-200 text-xs transition" data-numero="<%= i %>"><%= i.toString().padStart(2, '0') %></button><% } %>
+                            <div class="flex justify-between items-end mb-1.5"><span class="text-slate-400 uppercase tracking-widest text-[10px]">Marque <span class="text-indigo-600 font-black" id="label-necessarias"><%= edicao.qtd_dezenas %></span> dezenas</span><span id="contador" class="text-xs text-slate-500">0/<%= edicao.qtd_dezenas %></span></div>
+                            
+                            <div class="grid grid-cols-10 gap-1 p-2 border rounded-xl bg-slate-50 justify-items-center">
+                                <% for(let i=1; i<=60; i++) { %>
+                                    <button type="button" class="btn-volante w-7 h-7 sm:w-8 sm:h-8 rounded-full border border-slate-200 bg-white font-bold text-slate-700 hover:bg-slate-200 text-xs transition flex items-center justify-center shadow-sm" data-numero="<%= i %>">
+                                        <%= i.toString().padStart(2, '0') %>
+                                    </button>
+                                <% } %>
                             </div>
                             <input type="hidden" name="dezenas" id="aposta-dezenas" required>
                         </div>
@@ -55,41 +60,39 @@
                             <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" name="pago" id="aposta-pago" class="w-4 h-4 text-slate-900 rounded"><span>PAGO</span></label>
                             <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" name="is_bonus" id="aposta-bonus" class="w-4 h-4 text-slate-900 rounded"><span>BÔNUS</span></label>
                         </div>
-                        <button type="submit" id="btn-salvar" disabled class="w-full bg-slate-900 text-white py-3 rounded-xl uppercase shadow-md disabled:bg-slate-200 transition">Marcar dezenas necessárias</button>
-                        <button type="button" onclick="cancelarEdicao()" id="btn-cancelar" class="hidden w-full bg-slate-200 text-slate-600 py-2 rounded-xl mt-1">Descartar</button>
+                        <button type="submit" id="btn-salvar" disabled class="w-full bg-slate-900 text-white py-3 rounded-xl uppercase shadow-md disabled:bg-slate-200 disabled:text-slate-400 transition text-xs font-black tracking-wider">Marcar dezenas necessárias</button>
+                        <button type="button" onclick="cancelarEdicao()" id="btn-cancelar" class="hidden w-full bg-slate-200 text-slate-600 py-2 rounded-xl mt-1 text-xs">Descartar Alterações</button>
                     </form>
                 <% } %>
             </div>
 
-            <div class="bg-white rounded-2xl shadow border col-span-2 overflow-hidden">
-                <div class="p-4 bg-slate-50 border-b flex flex-col md:flex-row gap-3 justify-between items-center">
-                    <input type="text" id="busca-aposta" placeholder="🔍 Buscar jogador..." class="border rounded-xl px-4 py-2 text-sm w-full md:w-1/3 bg-white outline-none">
-                    <div class="flex flex-wrap gap-1 w-full md:w-auto justify-end">
-                        <button onclick="filtrarStatus('todos')" class="btn-status-filter active text-xs font-bold border px-3 py-1.5 rounded-lg bg-white">Todos</button>
-                        <button onclick="filtrarStatus('pago')" class="btn-status-filter text-xs font-bold border px-3 py-1.5 rounded-lg bg-white text-green-600">Pagos</button>
-                        <button onclick="filtrarStatus('pendente')" class="btn-status-filter text-xs font-bold border px-3 py-1.5 rounded-lg bg-white text-red-500">Pendentes</button>
+            <div class="bg-white rounded-2xl shadow border col-span-1 lg:col-span-2 overflow-hidden">
+                <div class="p-3 sm:p-4 bg-slate-50 border-b flex flex-col sm:flex-row gap-3 justify-between items-center">
+                    <input type="text" id="busca-aposta" placeholder="🔍 Buscar jogador..." class="border rounded-xl px-3 py-2 text-xs w-full sm:w-1/2 bg-white outline-none">
+                    <div class="flex gap-1 w-full sm:w-auto justify-end text-[10px]">
+                        <button onclick="filtrarStatus('todos')" class="btn-status-filter active font-bold border px-2.5 py-1.5 rounded-lg bg-white">Todos</button>
+                        <button onclick="filtrarStatus('pago')" class="btn-status-filter font-bold border px-2.5 py-1.5 rounded-lg bg-white text-green-600">Pagos</button>
+                        <button onclick="filtrarStatus('pendente')" class="btn-status-filter font-bold border px-2.5 py-1.5 rounded-lg bg-white text-red-500">Pendentes</button>
                     </div>
                 </div>
 
                 <div class="overflow-x-auto max-h-[75vh]">
-                    <table class="w-full text-left text-sm border-collapse" id="tabela-jogadores">
-                        <thead class="bg-slate-100 text-xs text-slate-400 uppercase tracking-wider sticky top-0 border-b">
-                            <tr><th>Jogador</th><th class="text-center">Dezenas Compradas</th><th class="text-center">Caixa</th><th class="text-right p-4">Controles</th></tr>
+                    <table class="w-full text-left text-xs border-collapse" id="tabela-jogadores">
+                        <thead class="bg-slate-100 text-[10px] text-slate-400 uppercase tracking-wider sticky top-0 border-b z-10">
+                            <tr><th class="p-3">Jogador</th><th class="text-center p-3">Dezenas Compradas</th><th class="text-center p-3">Caixa</th><th class="text-right p-3">Ações</th></tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100" id="corpo-apostas">
                             <% apostas.forEach(a => { %>
                             <tr class="item-aposta hover:bg-slate-50 transition whitespace-nowrap <%= a.tem_erro ? 'bg-red-50 border-l-4 border-red-500' : '' %>" data-status="<%= a.is_bonus ? 'bonus' : (a.pago ? 'pago' : 'pendente') %>" data-nome="<%= a.nome.toLowerCase() %>">
-                                <td class="p-4 truncate max-w-[160px]">
+                                <td class="p-3 truncate max-w-[140px]">
                                     <div class="flex flex-col">
-                                        <span class="text-[10px] text-slate-400 font-bold block">Cartão: Nº <%= a.cartao || '-' %></span>
-                                        <span class="font-bold text-slate-800 text-sm"><%= a.nome %></span>
-                                        <% if (a.tem_erro) { %>
-                                            <span class="text-[10px] text-red-600 font-black tracking-tight animate-pulse">🚨 QUANTIDADE INCORRETA NESTA RODADA</span>
-                                        <% } %>
+                                        <span class="text-[9px] text-slate-400 font-bold">Nº <%= a.cartao || '-' %></span>
+                                        <span class="font-bold text-slate-800 text-xs truncate"><%= a.nome %></span>
+                                        <% if (a.tem_erro) { %><span class="text-[9px] text-red-600 font-black animate-pulse">🚨 ERRO QTD</span><% } %>
                                     </div>
                                 </td>
-                                <td class="p-4 text-center">
-                                    <div class="flex justify-center flex-wrap gap-1 max-w-[280px] mx-auto">
+                                <td class="p-3 text-center">
+                                    <div class="flex justify-center flex-wrap gap-0.5 max-w-[240px] mx-auto">
                                         <% a.dezenas.forEach(d => { %>
                                             <span class="bolinha-tabela rounded-full <%= d === 0 ? 'bg-red-200 text-red-800 border-red-400 font-black' : '' %>">
                                                 <%= d === 0 ? '!!' : d.toString().padStart(2, '0') %>
@@ -97,20 +100,20 @@
                                         <% }) %>
                                     </div>
                                 </td>
-                                <td class="p-4 text-center">
+                                <td class="p-3 text-center">
                                     <% if (a.is_bonus) { %>
-                                        <span class="bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-1 rounded border border-amber-300">⭐ BÔNUS</span>
+                                        <span class="bg-amber-100 text-amber-800 text-[9px] font-bold px-1.5 py-0.5 rounded border border-amber-200">BÔNUS</span>
                                     <% } else { %>
                                         <form action="/apostas/toggle-pago/<%= a.id %><%= linkParams %>" method="POST">
-                                            <button type="submit" class="text-[10px] px-3 py-1.5 font-bold rounded-lg border tracking-wider shadow-sm transition <%= a.pago ? 'bg-green-100 text-green-700 border-green-300' : 'bg-red-50 text-red-500 border-red-200' %>"><%= a.pago ? '✓ RECEBIDO' : 'PENDENTE' %></button>
+                                            <button type="submit" class="text-[9px] px-2 py-1 font-bold rounded-md border tracking-wider transition <%= a.pago ? 'bg-green-100 text-green-700 border-green-300' : 'bg-red-50 text-red-500 border-red-200' %>"><%= a.pago ? '✓ PAGO' : 'PENDENTE' %></button>
                                         </form>
                                     <% } %>
                                 </td>
-                                <td class="p-4 text-right">
+                                <td class="p-3 text-right">
                                     <% if (!edicaoTravada) { %>
-                                        <div class="flex justify-end gap-2 text-xs font-bold uppercase">
-                                            <button onclick="editarAposta('<%= a.id %>', '<%= a.nome %>', '[<%= a.dezenas %>]', <%= a.is_bonus %>, <%= a.pago %>)" class="text-blue-500 bg-blue-50 border border-blue-200 px-2 py-1 rounded-md hover:bg-blue-100">Editar</button>
-                                            <form action="/apostas/deletar/<%= a.id %><%= linkParams %>" method="POST" onsubmit="return confirm('Apagar permanente?');"><button type="submit" class="text-red-500 bg-red-50 border border-red-200 px-2 py-1 rounded-md hover:bg-red-100">Excluir</button></form>
+                                        <div class="flex justify-end gap-1.5 text-[10px] font-bold uppercase">
+                                            <button onclick="editarAposta('<%= a.id %>', '<%= a.nome %>', '[<%= a.dezenas %>]', <%= a.is_bonus %>, <%= a.pago %>)" class="text-blue-500 bg-blue-50 border border-blue-200 px-2 py-1 rounded hover:bg-blue-100">Editar</button>
+                                            <form action="/apostas/deletar/<%= a.id %><%= linkParams %>" method="POST" onsubmit="return confirm('Apagar permanente?');"><button type="submit" class="text-red-500 bg-red-50 border border-red-200 px-1.5 py-1 rounded hover:bg-red-100">X</button></form>
                                         </div>
                                     <% } %>
                                 </td>
@@ -144,7 +147,7 @@
             botoes.forEach(b => { if(selecionadas.includes(parseInt(b.dataset.numero))) b.classList.add('selected'); else b.classList.remove('selected'); });
             selecionadas.sort((a,b) => a - b); document.getElementById('contador').innerText = `${selecionadas.length}/${dezenasObrigatorias}`;
             inputDezenas.value = selecionadas.join(','); btnSalvar.disabled = selecionadas.length !== dezenasObrigatorias;
-            btnSalvar.innerText = selecionadas.length === dezenasObrigatorias ? "Confirmar e Registrar Bilhete" : `Selecione exatamente ${dezenasObrigatorias} dezenas`;
+            btnSalvar.innerText = selecionadas.length === dezenasObrigatorias ? "Confirmar e Salvar Bilhete" : `Selecione exatamente ${dezenasObrigatorias} dezenas`;
         }
         botoes.forEach(btn => { btn.addEventListener('click', () => {
             const num = parseInt(btn.dataset.numero);
