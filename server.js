@@ -13,7 +13,7 @@ app.set('views', './views');
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-// Middleware de autenticação (Visitante por padrão)
+// Middleware de autenticação
 app.use((req, res, next) => {
     res.locals.isAdmin = false;
     res.locals.usuarioLogado = null;
@@ -351,27 +351,38 @@ app.post('/edicoes/deletar/:id', checkAdmin, async (req, res) => {
     } catch (e) { res.status(500).send(e.toString()); }
 });
 
-// IMPORTADOR À PROVA DE FALHAS (Leitura Fixa Posicional por Colunas)
+// IMPORTADOR DIAGNÓSTICO AVANÇADO
 app.post('/edicoes/importar', checkAdmin, upload.single('planilha'), (req, res) => {
     getContextoEdicao(req, async (err, ctx) => {
         if (!req.file || ctx.edicao.id === 0) return res.redirect(`/apostas${ctx.linkParams}`);
         
+        console.log("=== INICIANDO IMPORTAÇÃO DE PLANILHA ===");
+        console.log(`Configuração Atual da Rodada: ID=${ctx.edicao.id}, Tipo=${ctx.edicao.tipo_bolao}, Dezenas Esperadas=${ctx.edicao.qtd_dezenas}`);
+
         const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
         const data = xlsx.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { header: 1 });
         
         const limiteDezenas = parseInt(ctx.edicao.qtd_dezenas) || 6; 
+        let linhasProcessadas = 0;
+        let linhasInseridas Sucesso = 0;
 
         try {
-            for (const row of data) {
-                // Linha precisa existir e ter dados mínimos preenchidos
+            for (let rIdx = 0; rIdx < data.length; rIdx++) {
+                const row = data[rIdx];
                 if (!row || row.length < 3) continue;
                 
+                linhasProcessadas++;
                 let nomeCandidate = "";
                 let dezenasBrutas = [];
                 let isBonus = false;
                 let possuiErroDigitacao = 0;
 
-                // 1. Procurar tag de BÔNUS de forma global na linha inteira para segurança
+                // Diagnóstico: Logar conteúdo bruto de linhas iniciais para inspeção visual
+                if (rIdx < 8) {
+                    console.log(`Linha [${rIdx}] Conteúdo Bruto:`, JSON.stringify(row));
+                }
+
+                // 1. Tag de Bônus global
                 for (let i = 0; i < row.length; i++) {
                     let val = String(row[i] || '').toUpperCase().trim();
                     if (val.includes("BÔNUS") || val.includes("BONUS")) {
@@ -379,7 +390,7 @@ app.post('/edicoes/importar', checkAdmin, upload.single('planilha'), (req, res) 
                     }
                 }
 
-                // 2. Coleta fixa na Coluna C (índice 2 do Array)
+                // 2. Captura do Nome na Coluna C (Index 2)
                 if (row[2] !== undefined && row[2] !== null) {
                     let textNome = String(row[2]).trim();
                     let upperNome = textNome.toUpperCase();
@@ -388,17 +399,20 @@ app.post('/edicoes/importar', checkAdmin, upload.single('planilha'), (req, res) 
                     }
                 }
 
-                // Se não tem nome válido na coluna C, aborta a linha
-                if (!nomeCandidate) continue;
+                if (!nomeCandidate) {
+                    if (rIdx < 15 && dezenasBrutas.length > 0) {
+                        console.log(`Linha [${rIdx}] ignorada: Nome não identificado na Coluna C.`);
+                    }
+                    continue;
+                }
 
-                // 3. Coleta Fixa Posicional das Dezenas (Coluna D em diante)
-                // Se limiteDezenas for 6, lê de index 3 até index 8. Se for 10, lê de 3 até 12.
+                // 3. Coleta Posicional das Dezenas (Coluna D em diante)
                 for (let col = 3; col < (3 + limiteDezenas); col++) {
                     let cellVal = row[col];
                     
                     if (cellVal === undefined || cellVal === null || String(cellVal).trim() === "") {
                         possuiErroDigitacao = 1;
-                        dezenasBrutas.push(0); // Preenche com zero para não deixar quebrar a estrutura
+                        dezenasBrutas.push(0);
                         continue;
                     }
 
@@ -416,14 +430,13 @@ app.post('/edicoes/importar', checkAdmin, upload.single('planilha'), (req, res) 
                     }
                 }
 
-                // 4. Verificação de Integridade das Dezenas coletadas
+                // 4. Validação das Dezenas coletadas
                 let dezenasValidas = dezenasBrutas.filter(n => n > 0);
                 let dezenasUnicas = [...new Set(dezenasValidas)];
                 if (dezenasUnicas.length !== dezenasValidas.length || dezenasValidas.length !== limiteDezenas) {
                     possuiErroDigitacao = 1;
                 }
 
-                // Completa o array se algo ficou faltando para salvar no banco estruturado
                 while (dezenasBrutas.length < limiteDezenas) { dezenasBrutas.push(0); }
                 dezenasBrutas.sort((a, b) => a - b);
 
@@ -431,9 +444,15 @@ app.post('/edicoes/importar', checkAdmin, upload.single('planilha'), (req, res) 
                 await pool.query(`INSERT INTO apostas (edicao_id, nome, dezenas, is_bonus, pago, acertos, tem_erro) VALUES ($1, $2, $3, $4, true, 0, $5)`, 
                     [ctx.edicao.id, nomeCandidate, JSON.stringify(dezenasBrutas), isBonus, possuiErroDigitacao]
                 );
+                linhasInseridasSucesso++;
             }
+            
+            console.log(`=== FIM DO PROCESSAMENTO: ${linhasInseridasSucesso} de ${linhasProcessadas} linhas salvas com sucesso. ===`);
             res.redirect(`/apostas${ctx.linkParams}`);
-        } catch (e) { res.status(500).send(e.toString()); }
+        } catch (e) { 
+            console.error("❌ ERRO FATAL DURANTE A IMPORTAÇÃO:", e);
+            res.status(500).send(e.toString()); 
+        }
     });
 });
 
