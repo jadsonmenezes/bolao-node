@@ -287,8 +287,8 @@ app.post('/apostas/deletar/:id', checkAdmin, async (req, res) => {
 });
 
 // ADMIN - EDICOES
-app.get('/edicoes', checkAdmin, (header, res) => {
-    getContextoEdicao(header, async (err, ctx) => {
+app.get('/edicoes', checkAdmin, (req, res) => {
+    getContextoEdicao(req, async (err, ctx) => {
         try {
             const edicoes = (await pool.query("SELECT * FROM edicoes ORDER BY numero DESC")).rows;
             const rows = (await pool.query("SELECT pago, is_bonus FROM apostas WHERE edicao_id = $1", [ctx.edicao.id])).rows;
@@ -351,17 +351,18 @@ app.post('/edicoes/deletar/:id', checkAdmin, async (req, res) => {
     } catch (e) { res.status(500).send(e.toString()); }
 });
 
-// IMPORTADOR ULTRA-MATE INTELLIGENT (Mapeado exatamente para o seu histórico do Excel)
+// IMPORTADOR ULTRA ROBUSTO (Ignora blocos informativos no topo e foca nos dados reais)
 app.post('/edicoes/importar', checkAdmin, upload.single('planilha'), (req, res) => {
     getContextoEdicao(req, async (err, ctx) => {
         if (!req.file || ctx.edicao.id === 0) return res.redirect(`/apostas${ctx.linkParams}`);
         
-        console.log("=== INICIANDO IMPORTAÇÃO PLANILHA HISTÓRICA ===");
+        console.log("=== INICIANDO IMPORTAÇÃO DE PLANILHA REAL ===");
         const limiteDezenas = parseInt(ctx.edicao.qtd_dezenas) || 6; 
-        console.log(`Configuração Atual: Edição ID=${ctx.edicao.id}, Esperando=${limiteDezenas} Dezenas`);
+        console.log(`Configuração Alvo: Edição ID=${ctx.edicao.id}, Esperando=${limiteDezenas} Dezenas`);
 
         try {
             const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
+            // Abre o arquivo pegando a primeira aba que tiver conteúdo
             const data = xlsx.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { header: 1 });
             
             let linhasInseridasSucesso = 0;
@@ -370,20 +371,26 @@ app.post('/edicoes/importar', checkAdmin, upload.single('planilha'), (req, res) 
                 const row = data[rIdx];
                 if (!row || row.length < 3) continue;
 
-                // Captura o Nome na coluna B (Index 1)
+                // 1. Identificar se a primeira coluna é um número sequencial válido (Isso descarta cabeçalhos do topo)
+                let colA = String(row[0] || '').trim();
+                let numSequencial = parseInt(colA);
+                if (isNaN(numSequencial)) {
+                    continue; // Pula cabeçalhos institucionais do topo (como títulos e resumos financeiros)
+                }
+
+                // 2. Coleta o Nome na coluna B (Index 1)
                 let nomeRaw = row[1] ? String(row[1]).trim() : "";
                 let upperNome = nomeRaw.toUpperCase();
 
-                // Pula linhas de cabeçalho, vazias ou informativas do Excel
-                if (nomeRaw === "" || upperNome === "NOME" || upperNome.includes("PARTICIPANTE") || upperNome.includes("MEGA")) {
-                    continue;
+                if (nomeRaw === "" || upperNome === "NOME") {
+                    continue; // Descarta linhas de subtítulos internos
                 }
 
                 let dezenasBrutas = [];
                 let isBonus = false;
                 let possuiErroDigitacao = 0;
 
-                // Detecta se a linha possui tag de bônus em qualquer parte dela
+                // 3. Procurar a tag de BÔNUS na linha (Geralmente na penúltima coluna)
                 for (let i = 0; i < row.length; i++) {
                     let cellStr = String(row[i] || '').toUpperCase().trim();
                     if (cellStr.includes("BÔNUS") || cellStr.includes("BONUS")) {
@@ -391,7 +398,7 @@ app.post('/edicoes/importar', checkAdmin, upload.single('planilha'), (req, res) 
                     }
                 }
 
-                // Coleta as dezenas a partir da coluna C (Index 2) até bater o limite configurado (6 ou 10)
+                // 4. Coleta Posicional Fixa das Dezenas a partir da coluna C (Index 2)
                 for (let col = 2; col < (2 + limiteDezenas); col++) {
                     let cellVal = row[col];
                     
@@ -412,7 +419,7 @@ app.post('/edicoes/importar', checkAdmin, upload.single('planilha'), (req, res) 
                     }
                 }
 
-                // Verifica duplicatas ou falta de números
+                // 5. Validação estrutural básica da aposta
                 let dezenasValidas = dezenasBrutas.filter(n => n > 0);
                 let dezenasUnicas = [...new Set(dezenasValidas)];
                 if (dezenasUnicas.length !== dezenasValidas.length || dezenasValidas.length !== limiteDezenas) {
@@ -422,17 +429,17 @@ app.post('/edicoes/importar', checkAdmin, upload.single('planilha'), (req, res) 
                 while (dezenasBrutas.length < limiteDezenas) { dezenasBrutas.push(0); }
                 dezenasBrutas.sort((a, b) => a - b);
 
-                // Gravação direta no Supabase
+                // 6. Salvamento no Supabase Postgres
                 await pool.query(`INSERT INTO apostas (edicao_id, nome, dezenas, is_bonus, pago, acertos, tem_erro) VALUES ($1, $2, $3, $4, true, 0, $5)`, 
                     [ctx.edicao.id, nomeRaw, JSON.stringify(dezenasBrutas), isBonus, possuiErroDigitacao]
                 );
                 linhasInseridasSucesso++;
             }
             
-            console.log(`=== SUCESSO: ${linhasInseridasSucesso} apostas migradas com perfeição. ===`);
+            console.log(`=== SUCESSO ABSOLUTO: ${linhasInseridasSucesso} apostas processadas e salvas. ===`);
             res.redirect(`/apostas${ctx.linkParams}`);
         } catch (e) { 
-            console.error("❌ ERRO FATAL NA IMPORTAÇÃO:", e);
+            console.error("❌ ERRO NO PROCESSAMENTO DA PLANILHA:", e);
             res.status(500).send(e.toString()); 
         }
     });
