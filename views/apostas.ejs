@@ -8,13 +8,13 @@
     <style>
         .btn-volante.selected { background-color: #0f172a; color: white; border-color: #0f172a; transform: scale(1.1); font-weight: 900; }
         .btn-status-filter.active { background-color: #0f172a; color: white; }
-        .bolinha-tabela { background-color: #f8fafc; color: #475569; border: 1px solid #cbd5e1; font-weight: 700; width: 1.8rem; height: 1.8rem; display: inline-flex; align-items: center; justify-content: center; font-size: 0.75rem; }
+        .bolinha-tabela { background-color: #f8fafc; color: #475569; border: 1px solid #cbd5e1; font-weight: 700; width: 1.6rem; height: 1.6rem; display: inline-flex; align-items: center; justify-content: center; font-size: 0.75rem; flex-shrink: 0; }
     </style>
 </head>
 <body class="bg-slate-50 font-sans text-slate-800 pb-12">
     <nav class="bg-slate-900 text-white p-4 shadow-md sticky top-0 z-50">
         <div class="container mx-auto flex justify-between items-center">
-            <h1 class="text-base font-bold truncate">Admin: <%= edicao.nome_bolao %></h1>
+            <h1 class="text-sm font-bold truncate">Admin: <%= edicao.nome_bolao %></h1>
             <div class="space-x-4 text-sm font-semibold flex items-center">
                 <a href="/<%= linkParams %>" class="text-slate-400 hover:text-white transition">Ranking</a>
                 <a href="/apostas<%= linkParams %>" class="text-white border-b-2 border-white pb-1">Apostas</a>
@@ -25,19 +25,17 @@
     </nav>
 
     <main class="container mx-auto p-2 sm:p-4 mt-4 max-w-7xl">
-        <!-- Estatísticas da Rodada Atual -->
         <div class="grid grid-cols-2 md:grid-cols-5 gap-2 sm:gap-4 mb-6 text-center text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-500">
-            <div class="bg-white p-3 rounded-xl shadow-sm border">Jogos: <span class="text-base block font-black text-slate-800"><%= stats.total %></span></div>
-            <div class="bg-white p-3 rounded-xl shadow-sm border">Pagos / Pend: <span class="text-base block font-black"><span class="text-green-600"><%= stats.pagas %></span> / <span class="text-red-500"><%= stats.pendentes %></span></span></div>
-            <div class="bg-white p-3 rounded-xl shadow-sm border">Bônus: <span class="text-base block font-black text-amber-500"><%= stats.bonus %></span></div>
-            <div class="bg-white p-3 rounded-xl shadow-sm border">Caixa Líquido: <span class="text-base block font-black text-green-600">R$ <%= stats.arrecadado.toFixed(2) %></span></div>
-            <div class="bg-white p-3 rounded-xl shadow-sm border hidden md:block">Projeção: <span class="text-base block font-black text-slate-400">R$ <%= stats.previsto.toFixed(2) %></span></div>
+            <div class="bg-white p-3 rounded-xl shadow-sm border">Jogos: <span class="text-sm block font-black text-slate-800"><%= stats.total %></span></div>
+            <div class="bg-white p-3 rounded-xl shadow-sm border">Pagos / Pend: <span class="text-sm block font-black"><span class="text-green-600"><%= stats.pagas %></span> / <span class="text-red-500"><%= stats.pendentes %></span></span></div>
+            <div class="bg-white p-3 rounded-xl shadow-sm border">Bônus: <span class="text-sm block font-black text-amber-500"><%= stats.bonus %></span></div>
+            <div class="bg-white p-3 rounded-xl shadow-sm border">Caixa Líquido: <span class="text-sm block font-black text-green-600">R$ <%= stats.arrecadado.toFixed(2) %></span></div>
+            <div class="bg-white p-3 rounded-xl shadow-sm border hidden md:block">Projeção: <span class="text-sm block font-black text-slate-400">R$ <%= stats.previsto.toFixed(2) %></span></div>
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <!-- Formulário Lateral de Lançamentos -->
             <div class="bg-white p-4 sm:p-6 rounded-2xl shadow border col-span-1 h-fit lg:sticky lg:top-24">
-                <h3 class="font-black text-gray-800 text-base mb-3 border-b pb-1" id="form-titulo">Novo Bilhete Manual</h3>
+                <h3 class="font-black text-gray-800 text-sm mb-3 border-b pb-1" id="form-titulo">Novo Bilhete Manual</h3>
                 <% if (edicaoTravada) { %>
                     <p class="text-xs bg-red-50 p-3 rounded border border-red-200 text-red-600 font-bold">Edição encerrada ou sorteios iniciados. Cadastro bloqueado.</p>
                 <% } else { %>
@@ -50,7 +48,6 @@
                         <div>
                             <div class="flex justify-between items-end mb-1.5"><span class="text-slate-400 uppercase tracking-widest text-[10px]">Marque <span class="text-indigo-600 font-black" id="label-necessarias"><%= edicao.qtd_dezenas %></span> dezenas</span><span id="contador" class="text-xs text-slate-500">0/<%= edicao.qtd_dezenas %></span></div>
                             
-                            <!-- VOLANTE EM GRID 10 COLUNAS COMPACTO PARA SMARTPHONE -->
                             <div class="grid grid-cols-10 gap-1 p-2 border rounded-xl bg-slate-50 justify-items-center">
                                 <% for(let i=1; i<=60; i++) { %>
                                     <button type="button" class="btn-volante w-7 h-7 sm:w-8 sm:h-8 rounded-full border border-slate-200 bg-white font-bold text-slate-700 hover:bg-slate-200 text-xs transition flex items-center justify-center shadow-sm" data-numero="<%= i %>">
@@ -70,21 +67,18 @@
                 <% } %>
             </div>
 
-            <!-- Listagem de Apostas e Controles Administrativos -->
             <div class="bg-white rounded-2xl shadow border col-span-1 lg:col-span-2 overflow-hidden">
                 <div class="p-3 sm:p-4 bg-slate-50 border-b flex flex-col sm:flex-row gap-3 justify-between items-center">
                     <input type="text" id="busca-aposta" placeholder="🔍 Buscar jogador..." class="border rounded-xl px-3 py-2 text-xs w-full sm:w-1/3 bg-white outline-none">
                     
                     <div class="flex items-center gap-2 w-full sm:w-auto justify-end">
-                        <!-- Filtros por Status de Caixa -->
                         <div class="flex gap-1 text-[10px]">
                             <button onclick="filtrarStatus('todos')" class="btn-status-filter active font-bold border px-2 py-1.5 rounded-lg bg-white">Todos</button>
                             <button onclick="filtrarStatus('pago')" class="btn-status-filter font-bold border px-2 py-1.5 rounded-lg bg-white text-green-600">Pagos</button>
                             <button onclick="filtrarStatus('pendente')" class="btn-status-filter font-bold border px-2 py-1.5 rounded-lg bg-white text-red-500">Pendentes</button>
                         </div>
                         
-                        <!-- BOTÃO SOLICITADO: Limpar apenas as apostas da edição atual para reimportar -->
-                        <form action="/apostas/limpar-tudo<%= linkParams %>" method="POST" onsubmit="return confirm('ATENÇÃO: Você deseja apagar todas as apostas cadastradas nesta rodada? Isso não excluirá as configurações da edição.');">
+                        <form action="/apostas/limpar-tudo<%= linkParams %>" method="POST" onsubmit="return confirm('ATENÇÃO: Você deseja apagar todas as apostas cadastras nesta rodada?');">
                             <button type="submit" class="bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 font-black px-2.5 py-1.5 rounded-lg text-[10px] uppercase transition">🗑️ Limpar Apostas</button>
                         </form>
                     </div>
@@ -93,20 +87,21 @@
                 <div class="overflow-x-auto max-h-[75vh]">
                     <table class="w-full text-left text-xs border-collapse" id="tabela-jogadores">
                         <thead class="bg-slate-100 text-[10px] text-slate-400 uppercase tracking-wider sticky top-0 border-b z-10">
-                            <tr><th class="p-3">Jogador</th><th class="text-center p-3">Dezenas Compradas</th><th class="text-center p-3">Caixa</th><th class="text-right p-3">Ações</th></tr>
+                            <tr><th class="p-3 min-w-[120px]">Jogador</th><th class="text-center p-3">Dezenas Compradas</th><th class="text-center p-3 w-20">Caixa</th><th class="text-right p-3 w-20">Ações</th></tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100" id="corpo-apostas">
                             <% apostas.forEach(a => { %>
                             <tr class="item-aposta hover:bg-slate-50 transition whitespace-nowrap <%= a.tem_erro ? 'bg-red-50 border-l-4 border-red-500' : '' %>" data-status="<%= a.is_bonus ? 'bonus' : (a.pago ? 'pago' : 'pendente') %>" data-nome="<%= a.nome.toLowerCase() %>">
-                                <td class="p-3 truncate max-w-[140px]">
-                                    <div class="flex flex-col">
+                                <td class="p-3">
+                                    <div class="flex flex-col whitespace-normal break-words max-w-[130px] sm:max-w-none">
                                         <span class="text-[9px] text-slate-400 font-bold">Nº <%= a.cartao || '-' %></span>
-                                        <span class="font-bold text-slate-800 text-xs truncate"><%= a.nome %></span>
-                                        <% if (a.tem_erro) { %><span class="text-[9px] text-red-600 font-black animate-pulse">🚨 EXCEL QUANTIDADE INVÁLIDA</span><% } %>
+                                        <span class="font-bold text-slate-800 text-xs"><%= a.nome %></span>
+                                        <% if (a.tem_erro) { %><span class="text-[9px] text-red-600 font-black animate-pulse">🚨 QUANTIDADE INVÁLIDA</span><% } %>
                                     </div>
                                 </td>
-                                <td class="p-3 text-center">
-                                    <div class="flex justify-center flex-wrap gap-0.5 max-w-[240px] mx-auto">
+                                <td class="p-3">
+                                    <!-- CORREÇÃO: flex flex-row flex-wrap garante alinhamento horizontal -->
+                                    <div class="flex flex-row flex-wrap justify-center items-center gap-0.5 max-w-[280px] mx-auto min-w-[120px]">
                                         <% a.dezenas.forEach(d => { %>
                                             <span class="bolinha-tabela rounded-full <%= d === 0 ? 'bg-red-200 text-red-800 border-red-400 font-black' : '' %>">
                                                 <%= d === 0 ? '!!' : d.toString().padStart(2, '0') %>
@@ -127,7 +122,7 @@
                                     <% if (!edicaoTravada) { %>
                                         <div class="flex justify-end gap-1.5 text-[10px] font-bold uppercase">
                                             <button onclick="editarAposta('<%= a.id %>', '<%= a.nome %>', '[<%= a.dezenas %>]', <%= a.is_bonus %>, <%= a.pago %>)" class="text-blue-500 bg-blue-50 border border-blue-200 px-2 py-1 rounded hover:bg-blue-100">Editar</button>
-                                            <form action="/apostas/deletar/<%= a.id %><%= linkParams %>" method="POST" onsubmit="return confirm('Excluir permanente?');"><button type="submit" class="text-red-500 bg-red-50 border border-red-200 px-1.5 py-1 rounded hover:bg-red-100">X</button></form>
+                                            <form action="/apostas/deletar/<%= a.id %><%= linkParams %>" method="POST" onsubmit="return confirm('Excluir?');"><button type="submit" class="text-red-500 bg-red-50 border border-red-200 px-1.5 py-1 rounded hover:bg-red-100">X</button></form>
                                         </div>
                                     <% } %>
                                 </td>
