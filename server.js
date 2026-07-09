@@ -32,16 +32,21 @@ const pool = new Pool({
     ssl: { rejectUnauthorized: false }
 });
 
-// INICIALIZAÇÃO DO BANCO DE DADOS
+// INICIALIZAÇÃO DO BANCO DE DADOS (ATUALIZADO)
 async function initDB() {
     const client = await pool.connect();
     try {
+        // Nova coluna deletado_em para soft-delete de edições
         await client.query(`CREATE TABLE IF NOT EXISTS edicoes (
             id SERIAL PRIMARY KEY, nome_bolao TEXT, numero INTEGER, data_inicio TEXT, 
             valor_aposta REAL, pct_admin REAL, pct_premio_principal REAL, pct_primeiro_sorteio REAL, 
             pct_proximos REAL, pct_doacao REAL, mostrar_admin BOOLEAN, status TEXT,
-            tipo_bolao TEXT DEFAULT 'acumulativo', qtd_dezenas INTEGER DEFAULT 6
+            tipo_bolao TEXT DEFAULT 'acumulativo', qtd_dezenas INTEGER DEFAULT 6,
+            deletado_em TIMESTAMP DEFAULT NULL
         )`);
+
+        // Garantir que a coluna deletado_em exista caso a tabela já tenha sido criada antes
+        await client.query(`ALTER TABLE edicoes ADD COLUMN IF NOT EXISTS deletado_em TIMESTAMP DEFAULT NULL`);
         
         await client.query(`CREATE TABLE IF NOT EXISTS apostas (
             id SERIAL PRIMARY KEY, edicao_id INTEGER, cartao INTEGER DEFAULT 0, 
@@ -63,7 +68,7 @@ async function initDB() {
             await client.query("INSERT INTO usuarios (username, senha) VALUES ('admin', 'beap@154')");
         }
 
-        const res = await client.query("SELECT id FROM edicoes LIMIT 1");
+        const res = await client.query("SELECT id FROM edicoes WHERE deletado_em IS NULL LIMIT 1");
         if (res.rows.length === 0) {
             await client.query("INSERT INTO edicoes (nome_bolao, numero, data_inicio, valor_aposta, pct_admin, pct_premio_principal, pct_primeiro_sorteio, pct_proximos, pct_doacao, mostrar_admin, status, tipo_bolao, qtd_dezenas) VALUES ('Bolão Entre Amigos', 1, to_char(NOW(), 'YYYY-MM-DD'), 20.00, 15, 75, 7, 15, 3, true, 'aberta', 'acumulativo', 6)");
         }
@@ -75,12 +80,15 @@ initDB().catch(err => console.error('Erro ao inicializar banco:', err));
 
 async function getContextoEdicao(req, callback) {
     try {
-        const todasEdicoesRes = await pool.query("SELECT id, numero, nome_bolao FROM edicoes ORDER BY numero DESC");
+        // Limpa edições deletadas há mais de 3 dias de forma automática
+        await pool.query("DELETE FROM edicoes WHERE deletado_em < NOW() - INTERVAL '3 days'");
+
+        const todasEdicoesRes = await pool.query("SELECT id, numero, nome_bolao FROM edicoes WHERE deletado_em IS NULL ORDER BY numero DESC");
         let edicaoRes;
         if (req.query.edicao_id) {
-            edicaoRes = await pool.query("SELECT * FROM edicoes WHERE id = $1", [req.query.edicao_id]);
+            edicaoRes = await pool.query("SELECT * FROM edicoes WHERE id = $1 AND deletado_em IS NULL", [req.query.edicao_id]);
         } else {
-            edicaoRes = await pool.query("SELECT * FROM edicoes ORDER BY id DESC LIMIT 1");
+            edicaoRes = await pool.query("SELECT * FROM edicoes WHERE deletado_em IS NULL ORDER BY id DESC LIMIT 1");
         }
         
         const todasEdicoes = todasEdicoesRes.rows;
@@ -107,10 +115,13 @@ app.get('/', (req, res) => {
         if (!ctx || ctx.edicao.id === 0) return res.send("Nenhuma edição ativa encontrada.");
         try {
             const apostasRows = (await pool.query(`SELECT * FROM apostas WHERE edicao_id = $1 ORDER BY cartao ASC, nome ASC`, [ctx.edicao.id])).rows;
+            // IMPORTANTE: Sorteios rigidamente vinculados por edicao_id para independência simultânea
             const sorteiosRows = (await pool.query(`SELECT * FROM sorteios WHERE edicao_id = $1 ORDER BY data_lancamento ASC`, [ctx.edicao.id])).rows;
             
             const apostas = apostasRows || [];
             const sorteios = (sorteiosRows || []).map(s => ({ ...s, dezenas: JSON.parse(s.dezenas) }));
+            
+            // As dezenas sorteadas agora são calculadas apenas baseadas nos sorteios DESTA edição
             let todasDezenas = []; sorteios.forEach(s => todasDezenas = todasDezenas.concat(s.dezenas));
             let dezenasPrimeiroSorteio = sorteios.length > 0 ? sorteios[0].dezenas : [];
 
@@ -272,6 +283,17 @@ app.post('/apostas/salvar', checkAdmin, (req, res) => {
     });
 });
 
+// NOVA OPÇÃO: EXCLUIR TODAS AS APOSTAS DE UMA EDIÇÃO SEM DELETAR A EDIÇÃO
+app.post('/apostas/limpar-tudo', checkAdmin, (req, res) => {
+    getContextoEdicao(req, async (err, ctx) => {
+        if (ctx.edicao.id === 0) return res.redirect('/apostas');
+        try {
+            await pool.query("DELETE FROM apostas WHERE edicao_id = $1", [ctx.edicao.id]);
+            res.redirect(`/apostas${ctx.linkParams}`);
+        } catch (e) { res.status(500).send(e.toString()); }
+    });
+});
+
 app.post('/apostas/toggle-pago/:id', checkAdmin, async (req, res) => {
     getContextoEdicao(req, async (err, ctx) => {
         await pool.query(`UPDATE apostas SET pago = NOT pago WHERE id = $1`, [req.params.id]);
@@ -290,7 +312,11 @@ app.post('/apostas/deletar/:id', checkAdmin, async (req, res) => {
 app.get('/edicoes', checkAdmin, (req, res) => {
     getContextoEdicao(req, async (err, ctx) => {
         try {
-            const edicoes = (await pool.query("SELECT * FROM edicoes ORDER BY numero DESC")).rows;
+            // Lista apenas edições não deletadas
+            const edicoes = (await pool.query("SELECT * FROM edicoes WHERE deletado_em IS NULL ORDER BY numero DESC")).rows;
+            // Lista edições na lixeira para recuperação (Soft deleted nos últimos 3 dias)
+            const lixeira = (await pool.query("SELECT * FROM edicoes WHERE deletado_em IS NOT NULL AND deletado_em >= NOW() - INTERVAL '3 days' ORDER BY deletado_em DESC")).rows;
+            
             const rows = (await pool.query("SELECT pago, is_bonus FROM apostas WHERE edicao_id = $1", [ctx.edicao.id])).rows;
             
             const total = rows ? rows.length : 0;
@@ -299,7 +325,7 @@ app.get('/edicoes', checkAdmin, (req, res) => {
             const arrecadado = pagas * ctx.edicao.valor_aposta;
             
             const stats = { total, pagas, pendentes: (total - bonus) - pagas, bonus, arrecadado, previsto: (total - bonus) * ctx.edicao.valor_aposta };
-            res.render('edicoes', { edicoes: edicoes || [], edicao: ctx.edicao, todasEdicoes: ctx.todasEdicoes, linkParams: ctx.linkParams, stats });
+            res.render('edicoes', { edicoes: edicoes || [], lixeira: lixeira || [], edicao: ctx.edicao, todasEdicoes: ctx.todasEdicoes, linkParams: ctx.linkParams, stats });
         } catch (e) { res.status(500).send(e.toString()); }
     });
 });
@@ -315,7 +341,7 @@ app.post('/edicoes/salvar', checkAdmin, async (req, res) => {
             await pool.query(`UPDATE edicoes SET nome_bolao=$1, data_inicio=$2, valor_aposta=$3, pct_admin=$4, pct_premio_principal=$5, pct_primeiro_sorteio=$6, pct_proximos=$7, pct_doacao=$8, mostrar_admin=$9, tipo_bolao=$10, qtd_dezenas=$11 WHERE id=$12`, [nome_bolao, data_inicio, valor_aposta, pct_admin, pct_premio_principal, pct_primeiro_sorteio, pct_proximos, pct_doacao, mAdmin, tipo, numDezenas, id]);
             res.redirect(`/edicoes?edicao_id=${id}`);
         } else {
-            const ult = (await pool.query("SELECT * FROM edicoes ORDER BY id DESC LIMIT 1")).rows[0];
+            const ult = (await pool.query("SELECT * FROM edicoes WHERE deletado_em IS NULL ORDER BY id DESC LIMIT 1")).rows[0];
             const proximoNumero = ult ? ult.numero + 1 : 1;
             
             const insertRes = await pool.query(`INSERT INTO edicoes (nome_bolao, numero, data_inicio, valor_aposta, pct_admin, pct_premio_principal, pct_primeiro_sorteio, pct_proximos, pct_doacao, mostrar_admin, status, tipo_bolao, qtd_dezenas) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'aberta', $11, $12) RETURNING id`, [nome_bolao, proximoNumero, data_inicio, valor_aposta, pct_admin, pct_premio_principal, pct_primeiro_sorteio, pct_proximos, pct_doacao, mAdmin, tipo, numDezenas]);
@@ -341,50 +367,53 @@ app.post('/edicoes/salvar', checkAdmin, async (req, res) => {
     } catch (e) { res.status(500).send(e.toString()); }
 });
 
+// SOFT DELETE COM PRAZO DE REVERSÃO DE 3 DIAS
 app.post('/edicoes/deletar/:id', checkAdmin, async (req, res) => {
     const edicaoId = req.params.id;
     try {
-        await pool.query("DELETE FROM apostas WHERE edicao_id = $1", [edicaoId]);
-        await pool.query("DELETE FROM sorteios WHERE edicao_id = $1", [edicaoId]);
-        await pool.query("DELETE FROM edicoes WHERE id = $1", [edicaoId]);
+        // Em vez de dar um DELETE permanente, movemos para a lixeira registrando a hora
+        await pool.query("UPDATE edicoes SET deletado_em = NOW() WHERE id = $1", [edicaoId]);
         res.redirect('/edicoes');
     } catch (e) { res.status(500).send(e.toString()); }
 });
 
-// IMPORTADOR DINÂMICO DE STATUS CAIXA (Lê "SIM", "AGUARDANDO" ou "BÔNUS")
+// ROTA DE RECUPERAÇÃO DA LIXEIRA
+app.post('/edicoes/restaurar/:id', checkAdmin, async (req, res) => {
+    const edicaoId = req.params.id;
+    try {
+        await pool.query("UPDATE edicoes SET deletado_em = NULL WHERE id = $1", [edicaoId]);
+        res.redirect(`/edicoes?edicao_id=${edicaoId}`);
+    } catch (e) { res.status(500).send(e.toString()); }
+});
+
+// IMPORTADOR DINÂMICO
 app.post('/edicoes/importar', checkAdmin, upload.single('planilha'), (req, res) => {
     getContextoEdicao(req, async (err, ctx) => {
         if (!req.file || ctx.edicao.id === 0) return res.redirect(`/apostas${ctx.linkParams}`);
         
-        console.log("=== IMPORTANDO COM VERIFICAÇÃO DE PAGAMENTO ===");
         const limiteDezenas = parseInt(ctx.edicao.qtd_dezenas) || 6; 
-
         try {
             const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
             const data = xlsx.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { header: 1 });
-            
             let linhasInseridasSucesso = 0;
 
             for (let rIdx = 0; rIdx < data.length; rIdx++) {
                 const row = data[rIdx];
                 if (!row || row.length < 3) continue;
 
-                // 1. Filtragem por número de controle sequencial na Coluna A
                 let colA = String(row[0] || '').trim();
                 let numSequencial = parseInt(colA);
                 if (isNaN(numSequencial)) continue;
 
-                // 2. Leitura do nome na Coluna B
                 let nomeRaw = row[1] ? String(row[1]).trim() : "";
                 let upperNome = nomeRaw.toUpperCase();
                 if (nomeRaw === "" || upperNome === "NOME") continue;
 
                 let dezenasBrutas = [];
                 let isBonus = false;
-                let estaPago = false; // Começa como falso (pendente por padrão)
+                let estaPago = false;
                 let possuiErroDigitacao = 0;
 
-                // 3. Captura Posicional das Dezenas (Coluna C até o limite estabelecido)
                 for (let col = 2; col < (2 + limiteDezenas); col++) {
                     let cellVal = row[col];
                     if (cellVal === undefined || cellVal === null || String(cellVal).trim() === "") {
@@ -402,29 +431,19 @@ app.post('/edicoes/importar', checkAdmin, upload.single('planilha'), (req, res) 
                     }
                 }
 
-                // 4. Varredura Inteligente do Status de Pagamento pós-dezenas
-                // Começa a ler a linha a partir de onde os números terminam
                 for (let i = (2 + limiteDezenas); i < row.length; i++) {
                     if (row[i] === undefined || row[i] === null) continue;
                     let strStatus = String(row[i]).toUpperCase().trim();
-                    
-                    if (strStatus.includes("BÔNUS") || strStatus.includes("BONUS")) {
+                    if (cellStr.includes("BÔNUS") || cellStr.includes("BONUS") || strStatus.includes("BÔNUS") || strStatus.includes("BONUS")) {
                         isBonus = true;
                     }
                     if (strStatus === "SIM" || strStatus === "PAGO") {
                         estaPago = true;
                     }
-                    if (strStatus.includes("AGUARDANDO")) {
-                        estaPago = false; // Garante o status pendente se estiver escrito aguardando
-                    }
                 }
 
-                // Se for bônus, por regra de negócio, o pagamento vira automático
-                if (isBonus) {
-                    estaPago = true;
-                }
+                if (isBonus) estaPago = true;
 
-                // Validação do volante
                 let dezenasValidas = dezenasBrutas.filter(n => n > 0);
                 let dezenasUnicas = [...new Set(dezenasValidas)];
                 if (dezenasUnicas.length !== dezenasValidas.length || dezenasValidas.length !== limiteDezenas) {
@@ -434,23 +453,17 @@ app.post('/edicoes/importar', checkAdmin, upload.single('planilha'), (req, res) 
                 while (dezenasBrutas.length < limiteDezenas) { dezenasBrutas.push(0); }
                 dezenasBrutas.sort((a, b) => a - b);
 
-                // 5. Inserção final respeitando o status coletado do caixa
                 await pool.query(`INSERT INTO apostas (edicao_id, nome, dezenas, is_bonus, pago, acertos, tem_erro) VALUES ($1, $2, $3, $4, $5, 0, $6)`, 
                     [ctx.edicao.id, nomeRaw, JSON.stringify(dezenasBrutas), isBonus, estaPago, possuiErroDigitacao]
                 );
                 linhasInseridasSucesso++;
             }
-            
-            console.log(`=== SUCESSO: ${linhasInseridasSucesso} apostas sincronizadas com status real. ===`);
             res.redirect(`/apostas${ctx.linkParams}`);
-        } catch (e) { 
-            console.error("❌ ERRO NO IMPORTADOR:", e);
-            res.status(500).send(e.toString()); 
-        }
+        } catch (e) { res.status(500).send(e.toString()); }
     });
 });
 
-// ADMIN - SORTEIOS
+// ADMIN - SORTEIOS (ATUALIZADO FILTRANDO RIGIDAMENTE POR EDICAO)
 app.get('/sorteios', checkAdmin, (req, res) => {
     getContextoEdicao(req, async (err, ctx) => {
         try {
