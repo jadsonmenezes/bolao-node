@@ -351,7 +351,7 @@ app.post('/edicoes/deletar/:id', checkAdmin, async (req, res) => {
     } catch (e) { res.status(500).send(e.toString()); }
 });
 
-// IMPORTADOR DIAGNÓSTICO AVANÇADO
+// IMPORTADOR DIAGNÓSTICO AVANÇADO (Sintaxe Corrigida)
 app.post('/edicoes/importar', checkAdmin, upload.single('planilha'), (req, res) => {
     getContextoEdicao(req, async (err, ctx) => {
         if (!req.file || ctx.edicao.id === 0) return res.redirect(`/apostas${ctx.linkParams}`);
@@ -359,14 +359,14 @@ app.post('/edicoes/importar', checkAdmin, upload.single('planilha'), (req, res) 
         console.log("=== INICIANDO IMPORTAÇÃO DE PLANILHA ===");
         console.log(`Configuração Atual da Rodada: ID=${ctx.edicao.id}, Tipo=${ctx.edicao.tipo_bolao}, Dezenas Esperadas=${ctx.edicao.qtd_dezenas}`);
 
-        const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
-        const data = xlsx.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { header: 1 });
-        
-        const limiteDezenas = parseInt(ctx.edicao.qtd_dezenas) || 6; 
-        let linhasProcessadas = 0;
-        let linhasInseridas Sucesso = 0;
-
         try {
+            const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
+            const data = xlsx.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { header: 1 });
+            
+            const limiteDezenas = parseInt(ctx.edicao.qtd_dezenas) || 6; 
+            let linhasProcessadas = 0;
+            let linhasInseridasSucesso = 0;
+
             for (let rIdx = 0; rIdx < data.length; rIdx++) {
                 const row = data[rIdx];
                 if (!row || row.length < 3) continue;
@@ -400,7 +400,7 @@ app.post('/edicoes/importar', checkAdmin, upload.single('planilha'), (req, res) 
                 }
 
                 if (!nomeCandidate) {
-                    if (rIdx < 15 && dezenasBrutas.length > 0) {
+                    if (rIdx < 15 && row.length > 3) {
                         console.log(`Linha [${rIdx}] ignorada: Nome não identificado na Coluna C.`);
                     }
                     continue;
