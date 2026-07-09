@@ -19,8 +19,7 @@
                 <a href="/apostas<%= linkParams %>" class="text-slate-400 hover:text-white transition">Apostas</a>
                 <a href="/sorteios<%= linkParams %>" class="text-slate-400 hover:text-white transition">Sorteios</a>
                 <a href="/edicoes<%= linkParams %>" class="text-white border-b-2 border-white pb-1">Edições</a>
-                <a class="nav-link" href="/usuarios<%= linkParams %>">Usuários</a>
-                <a class="nav-link text-danger" href="/logout">Sair</a>
+                <a href="/usuarios<%= linkParams %>" class="text-slate-400 hover:text-white transition">Usuários</a>
             </div>
         </div>
     </nav>
@@ -40,10 +39,27 @@
                     
                     <div id="box-clonagem" class="hidden bg-amber-50 border border-amber-300 p-4 rounded-xl text-amber-900 normal-case tracking-normal">
                         <p class="font-bold text-sm mb-2">🔄 Reusar Jogos?</p>
-                        <p class="text-xs mb-3 text-amber-700">Deseja migrar automaticamente todos os participantes e jogos cadastrados na edição anterior para esta nova?</p>
+                        <p class="text-xs mb-3 text-amber-700">Deseja migrar automaticamente todos os participantes cadastrados na edição anterior adaptando o volante?</p>
                         <div class="flex gap-4">
                             <label class="flex items-center gap-1 font-bold"><input type="radio" name="clonar_jogos" value="sim"> Sim, clonar tudo</label>
                             <label class="flex items-center gap-1 font-bold"><input type="radio" name="clonar_jogos" value="nao" checked> Não, planilha nova</label>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block mb-1 text-slate-400">Modelo do Bolão</label>
+                            <select name="tipo_bolao" id="ed-tipo" class="w-full bg-slate-50 border rounded-lg p-2.5 font-bold text-slate-800 text-xs outline-none">
+                                <option value="acumulativo" <%= edicao.tipo_bolao === 'acumulativo' ? 'selected' : '' %>>Tradicional (Acumula até acertar tudo)</option>
+                                <option value="tiro_curto" <%= edicao.tipo_bolao === 'tiro_curto' ? 'selected' : '' %>>Tiro Curto (Maior pontuador da rodada leva)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block mb-1 text-slate-400">Dezenas por Bilhete</label>
+                            <select name="qtd_dezenas" id="ed-qtd-dezenas" class="w-full bg-slate-50 border rounded-lg p-2.5 font-bold text-slate-800 text-xs outline-none">
+                                <option value="6" <%= edicao.qtd_dezenas === 6 ? 'selected' : '' %>>6 Números (Padrão)</option>
+                                <option value="10" <%= edicao.qtd_dezenas === 10 ? 'selected' : '' %>>10 Números (Tiro Curto/Especial)</option>
+                            </select>
                         </div>
                     </div>
 
@@ -61,10 +77,10 @@
                         <div class="grid grid-cols-2 gap-3">
                             <div><label class="text-red-600">Taxa Mesa Admin (%):</label><input type="number" name="pct_admin" id="ed-admin" value="<%= edicao.pct_admin %>" class="w-full border rounded p-2 mt-1 text-sm text-slate-800"></div>
                             <div><label>Doações Beneficentes (%):</label><input type="number" name="pct_doacao" id="ed-doacao" value="<%= edicao.pct_doacao %>" class="w-full border rounded p-2 mt-1 text-sm text-slate-800"></div>
-                            <div class="col-span-2 border-t pt-2 font-black text-slate-700 text-sm normal-case">Divisão Líquida:</div>
-                            <div><label class="text-green-600">Prêmio Sena (6 Acertos %):</label><input type="number" name="pct_premio_principal" id="ed-sena" value="<%= edicao.pct_premio_principal %>" class="w-full border border-green-300 text-green-700 font-bold rounded p-2 mt-1 text-sm"></div>
-                            <div><label class="text-blue-600">Prêmio 1º Sorteio (%):</label><input type="number" name="pct_primeiro_sorteio" id="ed-pri" value="<%= edicao.pct_primeiro_sorteio %>" class="w-full border border-blue-300 text-blue-700 font-bold rounded p-2 mt-1 text-sm"></div>
-                            <div class="col-span-2"><label class="text-purple-600">Rateio dos Próximos Acertos (%):</label><input type="number" name="pct_proximos" id="ed-rateio" value="<%= edicao.pct_proximos %>" class="w-full border border-purple-300 text-purple-700 font-bold rounded p-2 mt-1 text-sm"></div>
+                            <div class="col-span-2 border-t pt-2 font-black text-slate-700 text-sm normal-case">Divisão Líquida de Prêmios:</div>
+                            <div><label class="text-green-600">Prêmio Principal (%):</label><input type="number" name="pct_premio_principal" id="ed-sena" value="<%= edicao.pct_premio_principal %>" class="w-full border border-green-300 text-green-700 font-bold rounded p-2 mt-1 text-sm"></div>
+                            <div><label class="text-blue-600">1º Sorteio (% / Apenas Acumulativo):</label><input type="number" name="pct_primeiro_sorteio" id="ed-pri" value="<%= edicao.pct_primeiro_sorteio %>" class="w-full border border-blue-300 text-blue-700 font-bold rounded p-2 mt-1 text-sm"></div>
+                            <div class="col-span-2"><label class="text-purple-600">Rateio / Vice-Campeão (%):</label><input type="number" name="pct_proximos" id="ed-rateio" value="<%= edicao.pct_proximos %>" class="w-full border border-purple-300 text-purple-700 font-bold rounded p-2 mt-1 text-sm"></div>
                         </div>
                         <label class="flex items-center gap-2 mt-4 cursor-pointer pt-2 border-t normal-case font-bold text-slate-600"><input type="checkbox" name="mostrar_admin" id="ed-mostrar" <%= edicao.mostrar_admin ? 'checked' : '' %> class="w-4 h-4 rounded text-slate-900"><span>Exibir Lucro da Mesa no ranking público</span></label>
                     </div>
@@ -89,7 +105,7 @@
                 <div class="flex flex-col sm:flex-row justify-between sm:items-center bg-slate-50 p-3 rounded-xl border gap-2 hover:shadow-sm transition">
                     <div>
                         <span class="font-extrabold text-slate-900 block text-base"><%= e.nome_bolao %></span>
-                        <span class="text-xs font-bold text-green-600">Edição Geral Nº <%= e.numero %></span>
+                        <span class="text-xs font-bold text-green-600">Edição Geral Nº <%= e.numero %> (<%= e.tipo_bolao === 'tiro_curto' ? 'Tiro Curto - ' + e.qtd_dezenas + ' Dezenas' : 'Acumulativo' %>)</span>
                     </div>
                     <div class="flex gap-1 text-xs font-bold uppercase justify-end">
                         <button onclick='editarEdicao(<%- JSON.stringify(e) %>)' class="bg-white border border-slate-300 text-slate-600 px-3 py-1.5 rounded-lg hover:bg-slate-100 shadow-sm">Carregar / Ajustar</button>
@@ -118,6 +134,8 @@
             document.getElementById('btn-submit').innerText = "Iniciar Nova Rodada";
             document.getElementById('btn-submit').className = "w-full bg-blue-600 text-white py-3 rounded-xl uppercase font-bold text-sm shadow-md";
             
+            document.getElementById('ed-tipo').value = 'acumulativo';
+            document.getElementById('ed-qtd-dezenas').value = '6';
             document.getElementById('ed-admin').value = currentEditionData.pct_admin || 15;
             document.getElementById('ed-doacao').value = currentEditionData.pct_doacao || 3;
             document.getElementById('ed-sena').value = currentEditionData.pct_premio_principal || 75;
@@ -129,10 +147,24 @@
             editarEdicao(currentEditionData);
         }
 
+        document.getElementById('ed-tipo').addEventListener('change', (e) => {
+            if(e.target.value === 'tiro_curto') {
+                document.getElementById('ed-qtd-dezenas').value = '10';
+                document.getElementById('ed-pri').value = '0';
+                document.getElementById('ed-pri').disabled = true;
+            } else {
+                document.getElementById('ed-qtd-dezenas').value = '6';
+                document.getElementById('ed-pri').value = '7';
+                document.getElementById('ed-pri').disabled = false;
+            }
+        });
+
         function editarEdicao(e) {
             document.getElementById('form-titulo').innerText = "Ajustar Parâmetros da Edição " + e.numero; 
             document.getElementById('edicao-id').value = e.id;
             document.getElementById('box-clonagem').classList.add('hidden');
+            document.getElementById('ed-tipo').value = e.tipo_bolao || 'acumulativo';
+            document.getElementById('ed-qtd-dezenas').value = e.qtd_dezenas || 6;
             document.getElementById('ed-nome').value = e.nome_bolao; 
             document.getElementById('ed-data').value = e.data_inicio; 
             document.getElementById('ed-valor').value = e.valor_aposta;
@@ -140,6 +172,7 @@
             document.getElementById('ed-doacao').value = e.pct_doacao; 
             document.getElementById('ed-sena').value = e.pct_premio_principal;
             document.getElementById('ed-pri').value = e.pct_primeiro_sorteio; 
+            document.getElementById('ed-pri').disabled = (e.tipo_bolao === 'tiro_curto');
             document.getElementById('ed-rateio').value = e.pct_proximos; 
             document.getElementById('ed-mostrar').checked = e.mostrar_admin === 1 || e.mostrar_admin === true;
             document.getElementById('btn-submit').innerText = "Salvar Parâmetros";
