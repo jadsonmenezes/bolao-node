@@ -329,7 +329,6 @@ app.get('/edicoes', checkAdmin, (req, res) => {
         } catch (e) { res.status(500).send(e.toString()); }
     });
 });
-
 app.post('/edicoes/salvar', checkAdmin, async (req, res) => {
     const { id, nome_bolao, data_inicio, valor_aposta, pct_admin, pct_premio_principal, pct_primeiro_sorteio, pct_proximos, pct_doacao, mostrar_admin, clonar_jogos, tipo_bolao, qtd_dezenas } = req.body;
     const mAdmin = mostrar_admin === 'on';
@@ -344,28 +343,29 @@ app.post('/edicoes/salvar', checkAdmin, async (req, res) => {
             const ult = (await pool.query("SELECT * FROM edicoes WHERE deletado_em IS NULL ORDER BY id DESC LIMIT 1")).rows[0];
             const proximoNumero = ult ? ult.numero + 1 : 1;
             
+            // CORREÇÃO: Cria a nova edição sem mexer no status da anterior, permitindo que fiquem abertas juntas!
             const insertRes = await pool.query(`INSERT INTO edicoes (nome_bolao, numero, data_inicio, valor_aposta, pct_admin, pct_premio_principal, pct_primeiro_sorteio, pct_proximos, pct_doacao, mostrar_admin, status, tipo_bolao, qtd_dezenas) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'aberta', $11, $12) RETURNING id`, [nome_bolao, proximoNumero, data_inicio, valor_aposta, pct_admin, pct_premio_principal, pct_primeiro_sorteio, pct_proximos, pct_doacao, mAdmin, tipo, numDezenas]);
             const novaEdicaoId = insertRes.rows[0].id;
             
-            if (ult) {
-                await pool.query("UPDATE edicoes SET status = 'finalizada' WHERE id = $1", [ult.id]);
-                if (clonar_jogos === 'sim') {
-                    const apostasAnteriores = (await pool.query("SELECT nome, dezenas, is_bonus, pago FROM apostas WHERE edicao_id = $1", [ult.id])).rows;
-                    for (const ap of apostasAnteriores) {
-                        let dezenasArray = JSON.parse(ap.dezenas);
-                        if (dezenasArray.length < numDezenas) {
-                            while(dezenasArray.length < numDezenas) dezenasArray.push(0);
-                        } else if (dezenasArray.length > numDezenas) {
-                            dezenasArray = dezenasArray.slice(0, numDezenas);
-                        }
-                        await pool.query(`INSERT INTO apostas (edicao_id, nome, dezenas, is_bonus, pago, acertos, tem_erro) VALUES ($1, $2, $3, $4, $5, 0, 0)`, [novaEdicaoId, ap.nome, JSON.stringify(dezenasArray), ap.is_bonus, ap.pago]);
+            if (ult && clonar_jogos === 'sim') {
+                const apostasAnteriores = (await pool.query("SELECT nome, dezenas, is_bonus, pago FROM apostas WHERE edicao_id = $1", [ult.id])).rows;
+                for (const ap of apostasAnteriores) {
+                    let dezenasArray = JSON.parse(ap.dezenas);
+                    if (dezenasArray.length < numDezenas) {
+                        while(dezenasArray.length < numDezenas) dezenasArray.push(0);
+                    } else if (dezenasArray.length > numDezenas) {
+                        dezenasArray = dezenasArray.slice(0, numDezenas);
                     }
+                    await pool.query(`INSERT INTO apostas (edicao_id, nome, dezenas, is_bonus, pago, acertos, tem_erro) VALUES ($1, $2, $3, $4, $5, 0, 0)`, [novaEdicaoId, ap.nome, JSON.stringify(dezenasArray), ap.is_bonus, ap.pago]);
                 }
             }
             res.redirect(`/edicoes?edicao_id=${novaEdicaoId}`);
         }
     } catch (e) { res.status(500).send(e.toString()); }
 });
+
+app.post('/edicoes/salvar', checkAdmin, async (req, res) => {
+
 
 // SOFT DELETE COM PRAZO DE REVERSÃO DE 3 DIAS
 app.post('/edicoes/deletar/:id', checkAdmin, async (req, res) => {
