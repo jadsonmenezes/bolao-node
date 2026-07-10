@@ -1,83 +1,112 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-br">
 <head>
-    <meta charset="UTF-8"><title>Admin: Sorteios</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>.btn-dezena.selected { background-color: #2563eb; color: white; border-color: #2563eb; transform: scale(1.1); font-weight: 900; }</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerenciamento de Sorteios - Painel Administrativo</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.1/css/all.min.css">
+    <style>
+        body { background-color: #f4f6f9; font-family: 'Segoe UI', sans-serif; }
+        .navbar { background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); }
+        .card { border: none; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+    </style>
 </head>
-<body class="bg-slate-50 font-sans text-slate-800 pb-12">
-    <nav class="bg-slate-900 text-white p-4 shadow-md sticky top-0 z-50">
-        <div class="container mx-auto flex justify-between items-center">
-            <h1 class="text-base font-bold truncate">Admin: Concursos (<%= edicao.tipo_bolao === 'tiro_curto' ? 'Rodada Única' : 'Acumulativo' %>)</h1>
-            <div class="space-x-4 text-sm font-semibold">
-                <a href="/<%= linkParams %>" class="text-slate-400 hover:text-white transition">Ranking</a>
-                <a href="/apostas<%= linkParams %>" class="text-slate-400 hover:text-white transition">Apostas</a>
-                <a href="/sorteios<%= linkParams %>" class="text-white border-b-2 border-white pb-1">Sorteios</a>
-                <a href="/edicoes<%= linkParams %>" class="text-slate-400 hover:text-white transition">Edições</a>
-            </div>
-        </div>
-    </nav>
+<body>
 
-    <main class="container mx-auto p-2 sm:p-4 mt-4 max-w-6xl grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div class="bg-white p-4 sm:p-6 rounded-2xl shadow border col-span-1 h-fit">
-            <h3 class="font-black text-slate-800 text-base mb-3 border-b pb-1">Lançar Resultado Oficial</h3>
-            <% if (temSena) { %>
-                <div class="p-4 bg-red-100 border-l-4 border-red-500 rounded-lg text-xs text-red-800 font-bold">🏆 RODADA FINALIZADA! O resultado oficial já foi apurado e esta edição foi encerrada no sistema. Operação bloqueada.</div>
-            <% } else { %>
-                <form action="/sorteios/novo<%= linkParams %>" method="POST" class="space-y-4 text-xs font-bold uppercase tracking-wider text-slate-400">
-                    <div><label class="block text-slate-500 mb-1 text-[10px]">Nº Oficial do Concurso da Caixa</label><input type="number" name="concurso" required class="w-full bg-slate-50 border rounded-lg p-2.5 text-slate-800 text-sm font-bold outline-none focus:ring-2 focus:ring-blue-500"></div>
-                    <div>
-                        <div class="flex justify-between items-end mb-1.5"><span class="text-slate-500 text-[10px]">Marque as 6 Dezenas Oficial</span><span id="contador" class="text-xs text-slate-500">0/6</span></div>
-                        
-                        <div class="grid grid-cols-10 gap-1 p-2 bg-slate-50 rounded-xl border justify-items-center">
-                            <% for(let i=1; i<=60; i++) { %>
-                                <button type="button" class="btn-dezena w-7 h-7 sm:w-8 sm:h-8 rounded-full border border-slate-200 bg-white text-slate-700 font-bold text-xs transition flex items-center justify-center shadow-sm" data-numero="<%= i %>">
-                                    <%= i.toString().padStart(2, '0') %>
-                                </button>
-                            <% } %>
+<nav class="navbar navbar-expand-lg navbar-dark mb-4">
+    <div class="container">
+        <a class="navbar-brand" href="/"><i class="fas fa-trophy mr-2"></i> Painel Admin Bolão</a>
+        <div class="navbar-nav ml-auto">
+            <a class="nav-item nav-link" href="/apostas<%= linkParams %>"><i class="fas fa-ticket-alt mr-1"></i> Apostas</a>
+            <a class="nav-item nav-link active" href="/sorteios<%= linkParams %>"><i class="fas fa-dice mr-1"></i> Sorteios</a>
+            <a class="nav-item nav-link" href="/edicoes<%= linkParams %>"><i class="fas fa-cog mr-1"></i> Configurações</a>
+            <a class="nav-item nav-link" href="/usuarios"><i class="fas fa-users mr-1"></i> Usuários</a>
+            <a class="nav-item nav-link text-warning" href="/logout"><i class="fas fa-sign-out-alt"></i> Sair</a>
+        </div>
+    </div>
+</nav>
+
+<div class="container text-dark">
+    <div class="card p-3 mb-4 d-flex flex-row align-items-center justify-content-between bg-white">
+        <div>
+            <h4 class="mb-0">Gerir Resultados: <span class="text-primary"><%= edicao.nome_bolao %> (Edição <%= edicao.numero %>)</span></h4>
+            <span class="text-muted">Modalidade: <%= edicao.tipo_bolao === 'tiro_curto' ? 'Tiro Curto' : 'Acumulativo' %></span>
+        </div>
+        <select class="form-control w-auto" onchange="location = this.value;">
+            <% todasEdicoes.forEach(function(e) { %>
+                <option value="/sorteios?edicao_id=<%= e.id %>" <%= e.id === edicao.id ? 'selected' : '' %>>Edição <%= e.numero %> - <%= e.nome_bolao %></option>
+            <% }); %>
+        </select>
+    </div>
+
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card p-4 mb-4">
+                <h5>Lançar Concurso Oficial</h5>
+                <hr>
+                <% if (!temSena) { %>
+                    <form action="/sorteios/novo" method="POST">
+                        <input type="hidden" name="edicao_id" value="<%= edicao.id %>">
+
+                        <div class="form-group">
+                            <label>Número do Concurso (Ex: 2650)</label>
+                            <input type="number" name="concurso" class="form-control" required>
                         </div>
-                        <input type="hidden" name="dezenas" id="input-dezenas" required>
+                        <div class="form-group">
+                            <label>Dezenas Sorteadas</label>
+                            <input type="text" name="dezenas" class="form-control" placeholder="Ex: 4,11,25,39,44,51" required>
+                            <small class="text-muted">Introduza as dezenas separadas por vírgula.</small>
+                        </div>
+                        <button type="submit" class="btn btn-success btn-block"><i class="fas fa-bullhorn mr-1"></i> Publicar e Computar Pontos</button>
+                    </form>
+                <% } else { %>
+                    <div class="alert alert-info text-center">
+                        <i class="fas fa-check-double fa-2x mb-2 d-block"></i>
+                        <strong>Edição Concluída!</strong><br>
+                        O prémio principal já foi alcançado ou o ciclo de tiro curto terminou.
                     </div>
-                    <button type="submit" id="btn-salvar" disabled class="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl uppercase tracking-wider shadow-md disabled:bg-slate-200 disabled:text-slate-400 transition text-xs font-black">Marcar 6 dezenas</button>
-                </form>
-            <% } %>
-        </div>
-
-        <div class="bg-white rounded-2xl shadow border col-span-1 lg:col-span-2 p-4 sm:p-6">
-            <h3 class="font-black text-slate-800 text-base border-b pb-2 mb-4">Concursos Registrados</h3>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <% sorteios.forEach(s => { %>
-                <div class="bg-slate-50 rounded-xl shadow-inner p-3.5 border flex flex-col justify-between gap-3">
-                    <div class="flex justify-between items-center text-[10px] font-bold text-slate-400">
-                        <span>CONCURSO CAIXA Nº <%= s.concurso %></span>
-                        <form action="/sorteios/deletar/<%= s.id %><%= linkParams %>" method="POST"><button class="text-red-500 hover:underline">Excluir</button></form>
-                    </div>
-                    <div class="flex gap-1 justify-center flex-wrap">
-                        <% s.dezenas.forEach(d => { %><span class="w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 text-white flex items-center justify-center font-bold text-xs shadow-md"><%= d.toString().padStart(2, '0') %></span><% }) %>
-                    </div>
-                </div>
-                <% }) %>
+                <% } %>
             </div>
         </div>
-    </main>
 
-    <script>
-        const botoes = document.querySelectorAll('.btn-dezena'); const inputDezenas = document.getElementById('input-dezenas'); const btnSalvar = document.getElementById('btn-salvar'); let selecionadas = [];
-        botoes.forEach(btn => { btn.addEventListener('click', () => {
-            const num = parseInt(btn.dataset.numero);
-            if (selecionadas.includes(num)) { 
-                selecionadas = selecionadas.filter(n => n !== num); 
-                btn.classList.remove('selected'); 
-            } else if (selecionadas.length < 6) { 
-                selecionadas.push(num); 
-                btn.classList.add('selected'); 
-            }
-            selecionadas.sort((a,b) => a - b); 
-            document.getElementById('contador').innerText = `${selecionadas.length}/6`;
-            inputDezenas.value = selecionadas.join(','); 
-            btnSalvar.disabled = selecionadas.length !== 6;
-            btnSalvar.innerText =  selecionadas.length === 6 ? "Confirmar e Registrar Sorteio" : "Marque as 6 dezenas";
-        }); });
-    </script>
+        <div class="col-md-8">
+            <div class="card p-4">
+                <h5>Histórico de Sorteios Desta Edição</h5>
+                <div class="table-responsive mt-3">
+                    <table class="table table-hover table-striped">
+                        <thead>
+                            <tr>
+                                <th>Concurso</th>
+                                <th>Dezenas Extraídas</th>
+                                <th class="text-right">Ação</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <% if (sorteios.length === 0) { %>
+                                <tr><td colspan="3" class="text-center text-muted">Nenhum concurso lançado para esta edição.</td></tr>
+                            <% } %>
+                            <% sorteios.forEach(function(s) { %>
+                                <tr>
+                                    <td><strong>Concurso <%= s.concurso %></strong></td>
+                                    <td>
+                                        <% s.dezenas.forEach(function(num) { %>
+                                            <span class="badge badge-primary font-weight-bold px-2 py-1"><%= String(num).padStart(2, '0') %></span>
+                                        <% }) %>
+                                    </td>
+                                    <td class="text-right">
+                                        <form action="/sorteios/deletar/<%= s.id %>?edicao_id=<%= edicao.id %>" method="POST" onsubmit="return confirm('Deseja rolar atrás e remover este concurso? Os pontos dos utilizadores serão recalculados.')">
+                                            <button class="btn btn-sm btn-outline-danger"><i class="fas fa-undo"></i> Apagar</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            <% }) %>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 </body>
 </html>
