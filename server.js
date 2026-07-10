@@ -76,14 +76,18 @@ async function initDB() {
 }
 initDB().catch(err => console.error('Erro ao inicializar banco:', err));
 
+// FUNÇÃO CORRIGIDA: Captura edicao_id via query (GET) ou body (POST)
 async function getContextoEdicao(req, callback) {
     try {
         await pool.query("DELETE FROM edicoes WHERE deletado_em < NOW() - INTERVAL '3 days'");
 
-        const todasEdicoesRes = await pool.query("SELECT id, numero, nome_bolao FROM edicoes WHERE deletado_em IS NULL ORDER BY numero DESC");
+        const todasEdicoesRes = await pool.query("SELECT id, numero, nome_bolao, tipo_bolao FROM edicoes WHERE deletado_em IS NULL ORDER BY numero DESC");
+        
+        let edicaoId_selecionada = req.query.edicao_id || req.body.edicao_id;
         let edicaoRes;
-        if (req.query.edicao_id) {
-            edicaoRes = await pool.query("SELECT * FROM edicoes WHERE id = $1 AND deletado_em IS NULL", [req.query.edicao_id]);
+        
+        if (edicaoId_selecionada) {
+            edicaoRes = await pool.query("SELECT * FROM edicoes WHERE id = $1 AND deletado_em IS NULL", [edicaoId_selecionada]);
         } else {
             edicaoRes = await pool.query("SELECT * FROM edicoes WHERE deletado_em IS NULL ORDER BY id DESC LIMIT 1");
         }
@@ -228,7 +232,7 @@ app.post('/usuarios/deletar/:id', checkAdmin, async (req, res) => {
     try {
         const user = (await pool.query("SELECT username FROM usuarios WHERE id = $1", [req.params.id])).rows[0];
         if (user && user.username === 'admin') {
-            return res.send("<script>alert('O usuario master admin nao pode ser deletado.'); window.location='/usuarios';</script>");
+            return res.send("<script>alert('O utilizador master admin não pode ser eliminado.'); window.location='/usuarios';</script>");
         }
         await pool.query("DELETE FROM usuarios WHERE id = $1", [req.params.id]);
         res.redirect('/usuarios');
@@ -272,7 +276,7 @@ app.post('/apostas/salvar', checkAdmin, (req, res) => {
             } else {
                 await pool.query(`INSERT INTO apostas (edicao_id, nome, dezenas, is_bonus, pago, tem_erro) VALUES ($1, $2, $3, $4, $5, 0)`, [ctx.edicao.id, finalName, JSON.stringify(arrDezenas), bChecked, pChecked]);
             }
-            res.redirect(`/apostas${ctx.linkParams}`);
+            res.redirect(`/apostas?edicao_id=${ctx.edicao.id}`);
         } catch (e) { res.status(500).send(e.toString()); }
     });
 });
@@ -282,22 +286,22 @@ app.post('/apostas/limpar-tudo', checkAdmin, (req, res) => {
         if (ctx.edicao.id === 0) return res.redirect('/apostas');
         try {
             await pool.query("DELETE FROM apostas WHERE edicao_id = $1", [ctx.edicao.id]);
-            res.redirect(`/apostas${ctx.linkParams}`);
+            res.redirect(`/apostas?edicao_id=${ctx.edicao.id}`);
         } catch (e) { res.status(500).send(e.toString()); }
     });
 });
 
-app.post('/apostas/toggle-pago/:id', checkAdmin, async (req, res) => {
+app.post('/apostas/toggle-pago/:id', checkAdmin, (req, res) => {
     getContextoEdicao(req, async (err, ctx) => {
         await pool.query(`UPDATE apostas SET pago = NOT pago WHERE id = $1`, [req.params.id]);
-        res.redirect(`/apostas${ctx.linkParams}`);
+        res.redirect(`/apostas?edicao_id=${ctx.edicao.id}`);
     });
 });
 
-app.post('/apostas/deletar/:id', checkAdmin, async (req, res) => {
+app.post('/apostas/deletar/:id', checkAdmin, (req, res) => {
     getContextoEdicao(req, async (err, ctx) => {
         await pool.query(`DELETE FROM apostas WHERE id = $1`, [req.params.id]);
-        res.redirect(`/apostas${ctx.linkParams}`);
+        res.redirect(`/apostas?edicao_id=${ctx.edicao.id}`);
     });
 });
 
@@ -338,7 +342,6 @@ app.post('/edicoes/salvar', checkAdmin, async (req, res) => {
             const insertRes = await pool.query(`INSERT INTO edicoes (nome_bolao, numero, data_inicio, valor_aposta, pct_admin, pct_premio_principal, pct_primeiro_sorteio, pct_proximos, pct_doacao, mostrar_admin, status, tipo_bolao, qtd_dezenas) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'aberta', $11, $12) RETURNING id`, [nome_bolao, proximoNumero, data_inicio, valor_aposta, pct_admin, pct_premio_principal, pct_primeiro_sorteio, pct_proximos, pct_doacao, mAdmin, tipo, numDezenas]);
             const novaEdicaoId = insertRes.rows[0].id;
             
-            // CLONAGEM SELETIVA DINÂMICA
             if (clonar_jogos_id && clonar_jogos_id !== 'nao') {
                 const apostasAnteriores = (await pool.query("SELECT nome, dezenas, is_bonus, pago FROM apostas WHERE edicao_id = $1", [clonar_jogos_id])).rows;
                 for (const ap of apostasAnteriores) {
@@ -375,13 +378,12 @@ app.post('/edicoes/restaurar/:id', checkAdmin, async (req, res) => {
 // IMPORTADOR DINÂMICO
 app.post('/edicoes/importar', checkAdmin, upload.single('planilha'), (req, res) => {
     getContextoEdicao(req, async (err, ctx) => {
-        if (!req.file || ctx.edicao.id === 0) return res.redirect(`/apostas${ctx.linkParams}`);
+        if (!req.file || ctx.edicao.id === 0) return res.redirect(`/apostas?edicao_id=${ctx.edicao.id}`);
         
         const limiteDezenas = parseInt(ctx.edicao.qtd_dezenas) || 6; 
         try {
             const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
             const data = xlsx.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { header: 1 });
-            let linhasInseridasSucesso = 0;
 
             for (let rIdx = 0; rIdx < data.length; rIdx++) {
                 const row = data[rIdx];
@@ -442,9 +444,8 @@ app.post('/edicoes/importar', checkAdmin, upload.single('planilha'), (req, res) 
                 await pool.query(`INSERT INTO apostas (edicao_id, nome, dezenas, is_bonus, pago, acertos, tem_erro) VALUES ($1, $2, $3, $4, $5, 0, $6)`, 
                     [ctx.edicao.id, nomeRaw, JSON.stringify(dezenasBrutas), isBonus, estaPago, possuiErroDigitacao]
                 );
-                linhasInseridasSucesso++;
             }
-            res.redirect(`/apostas${ctx.linkParams}`);
+            res.redirect(`/apostas?edicao_id=${ctx.edicao.id}`);
         } catch (e) { res.status(500).send(e.toString()); }
     });
 });
@@ -478,7 +479,7 @@ app.get('/sorteios', checkAdmin, (req, res) => {
 
 app.post('/sorteios/novo', checkAdmin, async (req, res) => {
     getContextoEdicao(req, async (err, ctx) => {
-        if (ctx.edicao.status === 'finalizada') return res.redirect(`/sorteios${ctx.linkParams}`);
+        if (ctx.edicao.status === 'finalizada') return res.redirect(`/sorteios?edicao_id=${ctx.edicao.id}`);
         
         const arr = req.body.dezenas.split(',').map(Number).sort((a,b) => a - b);
         try {
@@ -508,7 +509,7 @@ app.post('/sorteios/novo', checkAdmin, async (req, res) => {
                 await pool.query("UPDATE edicoes SET status = 'finalizada' WHERE id = $1", [ctx.edicao.id]);
             }
             
-            res.redirect(`/sorteios${ctx.linkParams}`);
+            res.redirect(`/sorteios?edicao_id=${ctx.edicao.id}`);
         } catch (e) { res.status(500).send(e.toString()); }
     });
 });
@@ -517,9 +518,9 @@ app.post('/sorteios/deletar/:id', checkAdmin, async (req, res) => {
     getContextoEdicao(req, async (err, ctx) => {
         await pool.query(`DELETE FROM sorteios WHERE id = $1`, [req.params.id]);
         await pool.query("UPDATE edicoes SET status = 'aberta' WHERE id = $1", [ctx.edicao.id]);
-        res.redirect(`/sorteios${ctx.linkParams}`);
+        res.redirect(`/sorteios?edicao_id=${ctx.edicao.id}`);
     });
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`🚀 Plataforma Online: Porta ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Plataforma Online ativa na porta ${PORT}`));
