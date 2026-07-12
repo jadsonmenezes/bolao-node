@@ -9,16 +9,13 @@
     <style>
         body { background-color: #f4f7f6; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; color: #495057; }
         
-        /* TITULO EXCLUSIVO PARA IMPRESSÃO (OCULTO NA TELA) */
         .print-header { display: none; }
 
-        /* ESTILIZAÇÃO DO CABEÇALHO (CARDS EM DEGRADÊ CONTEXTUALIZADOS) */
+        /* QUADRO DE INFORMAÇÕES SUPERIORES DE PREMIAÇÕES */
         .stat-card { border: none; border-radius: 16px; padding: 20px; text-align: center; margin-bottom: 20px; height: calc(100% - 20px); box-shadow: 0 4px 15px rgba(0,0,0,0.04); background: #ffffff; transition: transform 0.2s; }
-        .stat-card:hover { transform: translateY(-2px); }
         .stat-card h6 { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #64748b; margin-bottom: 8px; }
         .stat-card h3 { font-size: 22px; font-weight: 800; color: #1e293b; margin-bottom: 0; }
         
-        /* Contextos de Fundo Específicos */
         .card-jogos { background: linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%); border-left: 5px solid #64748b; }
         .card-principal { background: linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%); border-left: 5px solid #10b981; }
         .card-principal h3 { color: #15803d; }
@@ -29,33 +26,29 @@
         
         .status-dot { width: 10px; height: 10px; background-color: #ef4444; border-radius: 50%; display: inline-block; margin-right: 6px; animation: pulse 2s infinite; }
         
-        /* Containers Principais */
         .main-card { border: none; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); background: #ffffff; padding: 24px; margin-bottom: 24px; }
         .card-title-custom { font-size: 16px; font-weight: 700; text-transform: uppercase; color: #1e293b; letter-spacing: 0.5px; }
 
-        /* Concursos Laterais */
         .box-concurso { background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 16px; margin-bottom: 16px; position: relative; }
         .concurso-badge { font-size: 10px; font-weight: 700; color: #2563eb; background: #eff6ff; padding: 4px 8px; border-radius: 6px; position: absolute; right: 16px; top: 16px; }
 
-        /* REGRAS DE BOLAS ADAPTÁVEIS */
+        /* CONTAINER DE DEZENAS NA WEB/COMPUTADOR */
         .balls-container { display: flex; flex-wrap: nowrap; gap: 6px; justify-content: center; width: max-content; margin: 0 auto; }
         .ball { width: 34px; height: 34px; line-height: 32px; border-radius: 50%; display: inline-block; text-align: center; font-weight: 700; font-size: 13px; border: 1px solid #cbd5e1; background: #ffffff; color: #334155; flex-shrink: 0; }
         .ball.drawn { background-color: #10b981 !important; color: #ffffff !important; border-color: #10b981 !important; }
         .ball.dark-drawn { background-color: #1e293b !important; color: #ffffff !important; border-color: #1e293b !important; }
 
-        /* Estilização da Tabela de Classificação */
+        /* Estilização da Tabela */
         .table-ranking { width: 100%; table-layout: fixed; }
         .table-ranking th { font-size: 11px; font-weight: 700; text-transform: uppercase; color: #94a3b8; border-top: none; padding: 12px 8px; vertical-align: middle; }
-        .table-ranking td { padding: 14px 8px; vertical-align: middle; font-size: 14px; border-top: 1px solid #f1f5f9; white-space: nowrap; }
+        .table-ranking td { padding: 14px 8px; vertical-align: middle; font-size: 14px; border-top: 1px solid #f1f5f9; }
         .ranking-row { transition: background-color 0.2s; }
         .ranking-row:hover { background-color: #f8fafc; }
         
-        /* Badges de Premiação e Ganhadores */
         .badge-winner { background-color: #e6f4ea; color: #137333; font-weight: 700; font-size: 11px; padding: 4px 10px; border-radius: 6px; display: inline-flex; align-items: center; margin-top: 4px; box-shadow: 0 2px 4px rgba(19,115,51,0.08); }
         .badge-winner i { margin-right: 5px; font-size: 12px; }
         .badge-bonus { background-color: #fef3c7; color: #d97706; font-weight: 700; font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-left: 4px; }
         
-        /* Controles Interativos */
         .search-wrapper { position: relative; max-width: 300px; width: 100%; }
         .search-wrapper i { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: #94a3b8; }
         .search-input { padding-left: 36px; border-radius: 10px; border: 1px solid #e2e8f0; font-size: 14px; transition: all 0.2s; }
@@ -64,41 +57,43 @@
 
         @keyframes pulse { 0% { opacity: 0.4; } 50% { opacity: 1; } 100% { opacity: 0.4; } }
         
-        /* REGRAS DE IMPRESSÃO CORRIGIDAS */
+        /* CORREÇÃO CIRÚRGICA DE TAMANHO DAS DEZENAS NA IMPRESSÃO */
         @media print {
             * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
             body { background: #fff; padding: 10px; }
             .navbar, .search-wrapper, .filter-select, .no-print, .btn-block { display: none !important; }
             
-            /* Força a exibição do título oculto na impressão */
             .print-header { display: block !important; text-align: center; margin-bottom: 25px; border-bottom: 2px solid #1e293b; padding-bottom: 10px; }
-            .print-header h1 { font-size: 26px; font-weight: 800; color: #1e293b; text-transform: uppercase; }
+            .print-header h1 { font-size: 24px; font-weight: 800; color: #1e293b; text-transform: uppercase; }
             
             .main-card, .stat-card { box-shadow: none !important; border: none !important; padding: 0 !important; margin-bottom: 20px !important; }
             .table-ranking th { color: #000 !important; }
+            
+            /* Força tamanho pequeno e fixo nas dezenas do papel */
+            .balls-container { gap: 4px !important; width: auto !important; display: flex !important; justify-content: center !important; }
+            .ball { width: 24px !important; height: 24px !important; line-height: 22px !important; font-size: 11px !important; margin: 0 !important; }
             .ball.drawn { background-color: #10b981 !important; color: #ffffff !important; border-color: #10b981 !important; }
             .ball.dark-drawn { background-color: #1e293b !important; color: #ffffff !important; border-color: #1e293b !important; }
         }
 
-        /* CONFIGURAÇÃO ULTRA-RESPONSIVA SEM ROLAGEM E SEM CORTES DE CANTO A CANTO */
+        /* RESPONSIVIDADE MOBILE FLUIDA E ALINHADA CONTRA SOBREPOSIÇÕES */
         @media (max-width: 767.98px) {
-            .main-card { padding: 10px; }
-            .table-responsive { overflow: hidden !important; } /* Remove qualquer vestígio de barra de rolagem */
+            .main-card { padding: 12px; }
             
-            /* Distribuição exata das colunas na tela pequena */
-            .table-ranking th:nth-child(1), .table-ranking td:nth-child(1) { width: 35px !important; padding: 10px 2px; font-size: 11px; }
-            .table-ranking th:nth-child(2), .table-ranking td:nth-child(2) { width: 45% !important; padding: 10px 2px; }
-            .table-ranking th:nth-child(3), .table-ranking td:nth-child(3) { width: 45% !important; padding: 10px 0px; }
-            .table-ranking th:nth-child(4), .table-ranking td:nth-child(4) { width: 35px !important; padding: 10px 2px; }
+            /* Define quebras de texto seguras e larguras adequadas para as colunas */
+            .table-ranking th:nth-child(1), .table-ranking td:nth-child(1) { width: 35px !important; padding: 8px 2px; font-size: 11px; }
+            .table-ranking th:nth-child(2), .table-ranking td:nth-child(2) { width: 38% !important; padding: 8px 4px; white-space: normal !important; word-wrap: break-word !important; }
+            .table-ranking th:nth-child(3), .table-ranking td:nth-child(3) { width: 48% !important; padding: 8px 2px; }
+            .table-ranking th:nth-child(4), .table-ranking td:nth-child(4) { width: 45px !important; padding: 8px 2px; }
             
             .table-ranking td { font-size: 11px; }
-            .table-ranking td .font-weight-bold { font-size: 11px; max-width: 105px; text-overflow: ellipsis; }
+            .table-ranking td .font-weight-bold { font-size: 11px; line-height: 1.2; display: block; white-space: normal !important; }
 
-            /* Escalonamento Dinâmico por Largura da Tela (vw) - Mantém as dezenas em uma linha perfeitamente */
-            .balls-container { gap: 1vw; width: 100%; justify-content: center; }
-            .ball { width: 6.2vw; height: 6.2vw; line-height: calc(6.2vw - 2px); font-size: 2.5vw; margin: 0; }
+            /* Escala segura baseada na largura útil (Impedindo vazamento e sobreposição) */
+            .balls-container { gap: 1.2vw; width: 100%; justify-content: start; }
+            .ball { width: 6.4vw; height: 6.4vw; line-height: calc(6.4vw - 2px); font-size: 2.6vw; margin: 0; }
             
-            .badge-winner { font-size: 9px; padding: 2px 4px; }
+            .badge-winner { font-size: 9px; padding: 2px 4px; white-space: normal; }
             .stat-card h3 { font-size: 15px; }
         }
     </style>
@@ -195,7 +190,7 @@
             </div>
         </div>
 
-        <!-- PAINEL DIREITO: CLASSIFICAÇÃO / RANKING EXCLUSIVO LINEAR SEM CORTES -->
+        <!-- PAINEL DIREITO: CLASSIFICAÇÃO -->
         <div class="col-lg-9 col-md-8">
             <div class="main-card">
                 <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4">
@@ -219,7 +214,7 @@
                     </div>
                 </div>
 
-                <!-- Tabela Forçada de Canto a Canto -->
+                <!-- Tabela com Ajustes Estritos de Layout -->
                 <div class="table-responsive">
                     <table class="table table-ranking" id="table-ranking-body">
                         <thead>
@@ -235,7 +230,7 @@
                                 <tr class="ranking-row" data-acertos="<%= row.accTot %>" data-nome="<%= row.nome.toLowerCase() %>">
                                     <td class="text-muted font-weight-bold">#<%= row.cartao %></td>
                                     <td>
-                                        <div class="font-weight-bold text-dark text-uppercase text-truncate" style="letter-spacing: 0.2px;"><%= row.nome %></div>
+                                        <div class="font-weight-bold text-dark text-uppercase" style="letter-spacing: 0.2px;"><%= row.nome %></div>
                                         <% if (row.is_bonus) { %><span class="badge-bonus">BÔNUS</span><% } %>
                                         
                                         <% if (row.valorTotalPremio > 0) { %>
@@ -279,10 +274,10 @@ function filtrarTabela() {
         const nomeParticipante = linha.getAttribute('data-nome');
         const acertosParticipante = linha.getAttribute('data-acertos');
 
-        const Basketball = nomeParticipante.includes(inputBusca);
+        const correspondeBusca = nomeParticipante.includes(inputBusca);
         const correspondeAcertos = (filtroAcertos === 'todos') || (acertosParticipante === filtroAcertos);
 
-        if (Basketball && correspondeAcertos) {
+        if (correspondeBusca && correspondeAcertos) {
             linha.style.display = '';
         } else {
             linha.style.display = 'none';
