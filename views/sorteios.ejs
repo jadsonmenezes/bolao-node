@@ -10,6 +10,12 @@
         body { background-color: #f4f6f9; font-family: 'Segoe UI', sans-serif; }
         .navbar { background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); }
         .card { border: none; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        
+        /* Estilos do Painel de Dezenas */
+        .grid-dezenas { display: grid; grid-template-columns: repeat(10, 1fr); gap: 6px; margin-top: 10px; }
+        .btn-dezena { font-weight: bold; padding: 6px 0; border-radius: 6px; font-size: 14px; transition: all 0.2s; }
+        .btn-dezena.selecionada { background-color: #28a745 !important; color: white !important; border-color: #28a745 !important; }
+        @media (max-width: 576px) { .grid-dezenas { grid-template-columns: repeat(6, 1fr); } }
     </style>
 </head>
 <body>
@@ -31,7 +37,7 @@
     <div class="card p-3 mb-4 d-flex flex-row align-items-center justify-content-between bg-white">
         <div>
             <h4 class="mb-0">Gerir Resultados: <span class="text-primary"><%= edicao.nome_bolao %> (Edição <%= edicao.numero %>)</span></h4>
-            <span class="text-muted">Modalidade: <%= edicao.tipo_bolao === 'tiro_curto' ? 'Tiro Curto' : 'Acumulativo' %></span>
+            <span class="text-muted">Modalidade: <%= edicao.tipo_bolao === 'tiro_curto' ? 'Tiro Curto' : 'Acumulativo' %> | Configuração: 6 dezenas por sorteio</span>
         </div>
         <select class="form-control w-auto" onchange="location = this.value;">
             <% todasEdicoes.forEach(function(e) { %>
@@ -41,36 +47,51 @@
     </div>
 
     <div class="row">
-        <div class="col-md-4">
+        <!-- FORMULÁRIO DE LANÇAMENTO -->
+        <div class="col-md-5">
             <div class="card p-4 mb-4">
                 <h5>Lançar Concurso Oficial</h5>
                 <hr>
                 <% if (!temSena) { %>
-                    <form action="/sorteios/novo" method="POST">
+                    <form action="/sorteios/novo" method="POST" onsubmit="return validarSorteio()">
                         <input type="hidden" name="edicao_id" value="<%= edicao.id %>">
+                        <input type="hidden" name="dezenas" id="form-dezenas" value="">
 
                         <div class="form-group">
                             <label>Número do Concurso (Ex: 2650)</label>
                             <input type="number" name="concurso" class="form-control" required>
                         </div>
+                        
                         <div class="form-group">
-                            <label>Dezenas Sorteadas</label>
-                            <input type="text" name="dezenas" class="form-control" placeholder="Ex: 4,11,25,39,44,51" required>
-                            <small class="text-muted">Introduza as dezenas separadas por vírgula.</small>
+                            <label class="d-flex justify-content-between align-items-center">
+                                <span>Dezenas Sorteadas</span>
+                                <span class="badge badge-success" id="contador-dezenas">0 / 6</span>
+                            </label>
+                            
+                            <!-- Grade de Cliques Interativa fixa em 6 dezenas por sorteio padrão oficial -->
+                            <div class="grid-dezenas">
+                                <% for(let i = 1; i <= 60; i++) { %>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary btn-dezena" data-num="<%= i %>" onclick="alternarDezenaSorteio(<%= i %>)">
+                                        <%= String(i).padStart(2, '0') %>
+                                    </button>
+                                <% } %>
+                            </div>
                         </div>
+                        
                         <button type="submit" class="btn btn-success btn-block"><i class="fas fa-bullhorn mr-1"></i> Publicar e Computar Pontos</button>
                     </form>
                 <% } else { %>
                     <div class="alert alert-info text-center">
                         <i class="fas fa-check-double fa-2x mb-2 d-block"></i>
                         <strong>Edição Concluída!</strong><br>
-                        O prémio principal já foi alcançado ou o ciclo de tiro curto terminou.
+                        O prêmio principal já foi alcançado ou o ciclo de tiro curto terminou.
                     </div>
                 <% } %>
             </div>
         </div>
 
-        <div class="col-md-8">
+        <!-- LISTAGEM DE SORTEIOS COMPUTADOS -->
+        <div class="col-md-7">
             <div class="card p-4">
                 <h5>Histórico de Sorteios Desta Edição</h5>
                 <div class="table-responsive mt-3">
@@ -91,11 +112,11 @@
                                     <td><strong>Concurso <%= s.concurso %></strong></td>
                                     <td>
                                         <% s.dezenas.forEach(function(num) { %>
-                                            <span class="badge badge-primary font-weight-bold px-2 py-1"><%= String(num).padStart(2, '0') %></span>
+                                            <span class="badge badge-primary font-weight-bold px-2 py-1 mr-1"><%= String(num).padStart(2, '0') %></span>
                                         <% }) %>
                                     </td>
                                     <td class="text-right">
-                                        <form action="/sorteios/deletar/<%= s.id %>?edicao_id=<%= edicao.id %>" method="POST" onsubmit="return confirm('Deseja rolar atrás e remover este concurso? Os pontos dos utilizadores serão recalculados.')">
+                                        <form action="/sorteios/deletar/<%= s.id %>?edicao_id=<%= edicao.id %>" method="POST" onsubmit="return confirm('Deseja rolar atrás e remover este concurso? Os pontos dos usuários serão recalculados.')">
                                             <button class="btn btn-sm btn-outline-danger"><i class="fas fa-undo"></i> Apagar</button>
                                         </form>
                                     </td>
@@ -108,5 +129,39 @@
         </div>
     </div>
 </div>
+
+<script>
+let sorteioSelecionado = [];
+const limiteSorteio = 6; // Sorteio padrão da Caixa sempre possui 6 números extraídos
+
+function alternarDezenaSorteio(num) {
+    const idx = sorteioSelecionado.indexOf(num);
+    const btn = document.querySelector(`.btn-dezena[data-num="${num}"]`);
+    
+    if (idx > -1) {
+        sorteioSelecionado.splice(idx, 1);
+        if(btn) btn.classList.remove('selecionada');
+    } else {
+        if (sorteioSelecionado.length >= limiteSorteio) {
+            alert(`Um sorteio oficial registra exatamente ${limiteSorteio} dezenas.`);
+            return;
+        }
+        sorteioSelecionado.push(num);
+        if(btn) btn.classList.add('selecionada');
+    }
+    
+    sorteioSelecionado.sort((a, b) => a - b);
+    document.getElementById('form-dezenas').value = sorteioSelecionado.join(',');
+    document.getElementById('contador-dezenas').innerText = `${sorteioSelecionado.length} / ${limiteSorteio}`;
+}
+
+function validarSorteio() {
+    if (sorteioSelecionado.length !== limiteSorteio) {
+        alert(`Por favor, selecione exatamente as ${limiteSorteio} dezenas extraídas no sorteio.`);
+        return false;
+    }
+    return true;
+}
+</script>
 </body>
 </html>
