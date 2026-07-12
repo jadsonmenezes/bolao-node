@@ -44,67 +44,67 @@
         </div>
     </div>
 
-    <div class="row mb-4">
-        <div class="col-md-2"><div class="card p-3 text-center bg-dark text-white"><h6>Total Jogos</h6><h3><%= stats.total %></h3></div></div>
-        <div class="col-md-2"><div class="card p-3 text-center bg-success text-white"><h6>Pagos</h6><h3><%= stats.pagas %></h3></div></div>
-        <div class="col-md-2"><div class="card p-3 text-center bg-warning text-dark"><h6>Pendentes</h6><h3><%= stats.pendentes %></h3></div></div>
-        <div class="col-md-2"><div class="card p-3 text-center bg-info text-white"><h6>Jogos Bónus</h6><h3><%= stats.bonus %></h3></div></div>
-        <div class="col-md-2"><div class="card p-3 text-center bg-light text-muted"><h6>Arrecadado</h6><h3>R$ <%= stats.arrecadado.toFixed(2) %></h3></div></div>
-        <div class="col-md-2"><div class="card p-3 text-center bg-light text-muted"><h6>Previsto</h6><h3>R$ <%= stats.previsto.toFixed(2) %></h3></div></div>
-    </div>
-
-    <div class="row">
-        <div class="col-md-4">
-            <% if (!edicaoTravada) { %>
-                <div class="card p-4 mb-4">
-                    <h5><i class="fas fa-edit mr-2"></i> Inserir / Modificar Aposta</h5>
-                    <form action="/apostas/salvar" method="POST">
-                        <input type="hidden" name="edicao_id" value="<%= edicao.id %>">
-                        <input type="hidden" name="id" id="form-id" value="">
-
-                        <div class="form-group">
-                            <label>Nome do Apostador</label>
-                            <input type="text" name="nome" id="form-nome" class="form-control" required>
-                        </div>
-                        <div class="form-group">
-                            <label>Dezenas (Separadas por vírgula)</label>
-                            <input type="text" name="dezenas" id="form-dezenas" class="form-control" placeholder="Ex: 1,5,12,34,42,55" required>
-                            <small class="text-danger">Atenção: Insira exatamente <%= edicao.qtd_dezenas %> números.</small>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group col-6 form-check pl-4">
-                                <input type="checkbox" name="is_bonus" id="form-bonus" class="form-check-input">
-                                <label class="form-check-label">Jogo Bónus</label>
-                            </div>
-                            <div class="form-group col-6 form-check pl-4">
-                                <input type="checkbox" name="pago" id="form-pago" class="form-check-input">
-                                <label class="form-check-label">Pago</label>
-                            </div>
-                        </div>
-                        <button type="submit" class="btn btn-primary btn-block">Salvar Aposta</button>
-                        <button type="button" class="btn btn-light border btn-block" onclick="resetForm()">Novo Registro</button>
-                    </form>
+                <div class="row mb-4">
+                    <div class="col-md-2"><div class="card p-3 text-center bg-dark text-white"><h6>Total Jogos</h6><h3><%= stats.total %></h3></div></div>
+                    <div class="col-md-2"><div class="card p-3 text-center bg-success text-white"><h6>Pagos</h6><h3><%= stats.pagas %></h3></div></div>
+                    <div class="col-md-2"><div class="card p-3 text-center bg-warning text-dark"><h6>Pendentes</h6><h3><%= stats.pendentes %></h3></div></div>
+                    <div class="col-md-2"><div class="card p-3 text-center bg-info text-white"><h6>Jogos Bónus</h6><h3><%= stats.bonus %></h3></div></div>
+                    <div class="col-md-2"><div class="card p-3 text-center bg-light text-muted"><h6>Arrecadado</h6><h3>R$ <%= stats.arrecadado.toFixed(2) %></h3></div></div>
+                    <div class="col-md-2"><div class="card p-3 text-center bg-light text-muted"><h6>Previsto</h6><h3>R$ <%= stats.previsto.toFixed(2) %></h3></div></div>
                 </div>
-
-                <div class="card p-4 mb-4 border-primary">
-                    <h5><i class="fas fa-file-excel mr-2"></i> Importar via Excel</h5>
-                    <form action="/edicoes/importar" method="POST" enctype="multipart/form-data">
-                        <input type="hidden" name="edicao_id" value="<%= edicao.id %>">
-                        <div class="form-group">
-                            <input type="file" name="planilha" class="form-control-file" required>
-                        </div>
-                        <button type="submit" class="btn btn-info btn-block">Processar Carga Dinâmica</button>
+            
+                <div class="row">
+                    <div class="col-md-4">
+                <% if (isAdmin || !edicaoTravada) { %>
+                    <div class="card p-4 mb-4">
+                        <h5><i class="fas fa-edit mr-2"></i> Inserir / Modificar Aposta</h5>
+                        <form action="/apostas/salvar" method="POST">
+                            <!-- AMARRAÇÃO DE SEGURANÇA CONTRA OVERLAP -->
+                            <input type="hidden" name="edicao_id" value="<%= edicao.id %>">
+                            <input type="hidden" name="id" id="form-id" value="">
+            
+                            <div class="form-group">
+                                <label>Nome do Apostador</label>
+                                <input type="text" name="nome" id="form-nome" class="form-control" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Dezenas (Separadas por vírgula)</label>
+                                <input type="text" name="dezenas" id="form-dezenas" class="form-control" placeholder="Ex: 1,5,12,34,42,55" required>
+                                <small class="text-danger">Atenção: Insira exatamente <%= edicao.qtd_dezenas %> números.</small>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group col-6 form-check pl-4">
+                                    <input type="checkbox" name="is_bonus" id="form-bonus" class="form-check-input">
+                                    <label class="form-check-label">Jogo Bônus</label>
+                                </div>
+                                <div class="form-group col-6 form-check pl-4">
+                                    <input type="checkbox" name="pago" id="form-pago" class="form-check-input">
+                                    <label class="form-check-label">Pago</label>
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-primary btn-block">Salvar Aposta</button>
+                            <button type="button" class="btn btn-light border btn-block" onclick="resetForm()">Novo Registro</button>
+                        </form>
+                    </div>
+            
+                    <div class="card p-4 mb-4 border-primary">
+                        <h5><i class="fas fa-file-excel mr-2"></i> Importar via Excel</h5>
+                        <form action="/edicoes/importar" method="POST" enctype="multipart/form-data">
+                            <input type="hidden" name="edicao_id" value="<%= edicao.id %>">
+                            <div class="form-group">
+                                <input type="file" name="planilha" class="form-control-file" required>
+                            </div>
+                            <button type="submit" class="btn btn-info btn-block">Processar Carga Dinâmica</button>
+                        </form>
+                    </div>
+            
+                    <form action="/apostas/limpar-tudo?edicao_id=<%= edicao.id %>" method="POST" onsubmit="return confirm('ATENÇÃO: Eliminar permanentemente TODOS os jogos desta edição?')">
+                        <button class="btn btn-sm btn-outline-danger btn-block mb-4"><i class="fas fa-radiation"></i> Limpar Banco desta Edição</button>
                     </form>
-                </div>
-
-                <form action="/apostas/limpar-tudo?edicao_id=<%= edicao.id %>" method="POST" onsubmit="return confirm('ATENÇÃO: Eliminar TODOS os jogos desta edição permanentemente?')">
-                    <button class="btn btn-sm btn-outline-danger btn-block mb-4"><i class="fas fa-radiation"></i> Limpar Banco desta Edição</button>
-                </form>
-            <% } else { %>
-                <div class="alert alert-warning"><i class="fas fa-lock mr-2"></i> Jogos travados. Esta edição já possui sorteios ou foi fechada.</div>
-            <% } %>
-        </div>
-
+                <% } else { %>
+                    <div class="alert alert-warning"><i class="fas fa-lock mr-2"></i> Jogos travados. Esta edição já possui sorteios computados.</div>
+                <% } %>
+            </div>
         <div class="col-md-8">
             <div class="card">
                 <div class="p-3 border-bottom font-weight-bold d-flex justify-content-between align-items-center">
