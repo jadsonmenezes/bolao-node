@@ -66,7 +66,7 @@ async function initDB() {
             await client.query("INSERT INTO usuarios (username, senha) VALUES ('admin', 'beap@154')");
         }
 
-        const res = await client.query("SELECT id FROM edicoes WHERE deletado_em IS NULL LIMIT 1");
+        const res = await client.query("SELECT id FROM edicoes LIMIT 1");
         if (res.rows.length === 0) {
             await client.query("INSERT INTO edicoes (nome_bolao, numero, data_inicio, valor_aposta, pct_admin, pct_premio_principal, pct_primeiro_sorteio, pct_proximos, pct_doacao, mostrar_admin, status, tipo_bolao, qtd_dezenas) VALUES ('Bolão Entre Amigos', 1, to_char(NOW(), 'YYYY-MM-DD'), 20.00, 15, 75, 7, 15, 3, true, 'aberta', 'acumulativo', 6)");
         }
@@ -76,24 +76,34 @@ async function initDB() {
 }
 initDB().catch(err => console.error('Erro ao inicializar banco:', err));
 
-// FUNÇÃO CORRIGIDA: Captura edicao_id via query (GET) ou body (POST)
+// FUNÇÃO ATUALIZADA: Captura edicao_id via query (GET) ou body (POST) de forma flexível e resiliente
 async function getContextoEdicao(req, callback) {
     try {
-        await pool.query("DELETE FROM edicoes WHERE deletado_em < NOW() - INTERVAL '3 days'");
+        // Remove com segurança os registros na lixeira há mais de 3 dias
+        await pool.query("DELETE FROM edicoes WHERE deletado_em IS NOT NULL AND deletado_em < NOW() - INTERVAL '3 days'");
 
+        // Seleciona as edições ativas (onde deletado_em é nulo)
         const todasEdicoesRes = await pool.query("SELECT id, numero, nome_bolao, tipo_bolao FROM edicoes WHERE deletado_em IS NULL ORDER BY numero DESC");
         
         let edicaoId_selecionada = req.query.edicao_id || req.body.edicao_id;
         let edicaoRes;
         
         if (edicaoId_selecionada) {
-            edicaoRes = await pool.query("SELECT * FROM edicoes WHERE id = $1 AND deletado_em IS NULL", [edicaoId_selecionada]);
+            edicaoRes = await pool.query("SELECT * FROM edicoes WHERE id = $1", [edicaoId_selecionada]);
         } else {
             edicaoRes = await pool.query("SELECT * FROM edicoes WHERE deletado_em IS NULL ORDER BY id DESC LIMIT 1");
         }
         
         const todasEdicoes = todasEdicoesRes.rows;
-        const edicao = edicaoRes.rows[0];
+        let edicao = edicaoRes.rows[0];
+
+        // Fallback preventivo caso a query de nulos retorne vazia por divergência de estado das colunas antigas
+        if (!edicao) {
+            const fallbackRes = await pool.query("SELECT * FROM edicoes ORDER BY id DESC LIMIT 1");
+            if (fallbackRes.rows[0]) {
+                edicao = fallbackRes.rows[0];
+            }
+        }
 
         if (!edicao) {
             return callback(null, { 
@@ -113,7 +123,9 @@ function checkAdmin(req, res, next) { if (!res.locals.isAdmin) return res.redire
 // RANKING PÚBLICO
 app.get('/', (req, res) => {
     getContextoEdicao(req, async (err, ctx) => {
-        if (!ctx || ctx.edicao.id === 0) return res.send("Nenhuma edição ativa encontrada.");
+        if (!ctx || !ctx.edicao || ctx.edicao.id === 0) {
+            return res.send("Nenhum bolão cadastrado ou ativo no momento. Vá ao painel /edicoes e crie uma nova rodada!");
+        }
         try {
             const apostasRows = (await pool.query(`SELECT * FROM apostas WHERE edicao_id = $1 ORDER BY cartao ASC, nome ASC`, [ctx.edicao.id])).rows;
             const sorteiosRows = (await pool.query(`SELECT * FROM sorteios WHERE edicao_id = $1 ORDER BY data_lancamento ASC`, [ctx.edicao.id])).rows;
@@ -232,7 +244,7 @@ app.post('/usuarios/deletar/:id', checkAdmin, async (req, res) => {
     try {
         const user = (await pool.query("SELECT username FROM usuarios WHERE id = $1", [req.params.id])).rows[0];
         if (user && user.username === 'admin') {
-            return res.send("<script>alert('O utilizador master admin não pode ser eliminado.'); window.location='/usuarios';</script>");
+            return res.send("<script>alert('O usuario master admin nao pode ser deletado.'); window.location='/usuarios';</script>");
         }
         await pool.query("DELETE FROM usuarios WHERE id = $1", [req.params.id]);
         res.redirect('/usuarios');
@@ -342,6 +354,7 @@ app.post('/edicoes/salvar', checkAdmin, async (req, res) => {
             const insertRes = await pool.query(`INSERT INTO edicoes (nome_bolao, numero, data_inicio, valor_aposta, pct_admin, pct_premio_principal, pct_primeiro_sorteio, pct_proximos, pct_doacao, mostrar_admin, status, tipo_bolao, qtd_dezenas) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'aberta', $11, $12) RETURNING id`, [nome_bolao, proximoNumero, data_inicio, valor_aposta, pct_admin, pct_premio_principal, pct_primeiro_sorteio, pct_proximos, pct_doacao, mAdmin, tipo, numDezenas]);
             const novaEdicaoId = insertRes.rows[0].id;
             
+            // CLONAGEM DINÂMICA ALVO
             if (clonar_jogos_id && clonar_jogos_id !== 'nao') {
                 const apostasAnteriores = (await pool.query("SELECT nome, dezenas, is_bonus, pago FROM apostas WHERE edicao_id = $1", [clonar_jogos_id])).rows;
                 for (const ap of apostasAnteriores) {
