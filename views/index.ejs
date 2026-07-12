@@ -32,24 +32,17 @@
         .box-concurso { background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 16px; margin-bottom: 16px; position: relative; }
         .concurso-badge { font-size: 10px; font-weight: 700; color: #2563eb; background: #eff6ff; padding: 4px 8px; border-radius: 6px; position: absolute; right: 16px; top: 16px; }
 
-        /* DEZENAS - CONFIGURAÇÃO SEGURA CONTRA QUEBRAS OU SOBREPOSIÇÕES */
-        .balls-container { display: flex; flex-wrap: nowrap; gap: 6px; justify-content: center; width: max-content; }
+        /* DEZENAS - ESPAÇAMENTO SEGURO NATIVO */
+        .balls-container { display: flex; flex-wrap: nowrap; gap: 6px; justify-content: center; width: max-content; margin: 0 auto; }
         .ball { width: 34px; height: 34px; line-height: 32px; border-radius: 50%; display: inline-block; text-align: center; font-weight: 700; font-size: 13px; border: 1px solid #cbd5e1; background: #ffffff; color: #334155; flex-shrink: 0; }
         .ball.drawn { background-color: #10b981 !important; color: #ffffff !important; border-color: #10b981 !important; }
         .ball.dark-drawn { background-color: #1e293b !important; color: #ffffff !important; border-color: #1e293b !important; }
 
-        /* TABELA PREMIUM COM TAMANHOS DE COLUNA FIXOS PARA ALINHAMENTO PERFEITO */
-        .table-responsive-custom { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
-        .table-ranking { width: 100%; min-width: 600px; table-layout: fixed; margin-bottom: 0; }
-        .table-ranking th { font-size: 11px; font-weight: 700; text-transform: uppercase; color: #94a3b8; border-top: none; border-bottom: 2px solid #e2e8f0; padding: 12px 10px; vertical-align: middle; }
-        .table-ranking td { padding: 14px 10px; vertical-align: middle; font-size: 14px; border-top: 1px solid #f1f5f9; white-space: nowrap; }
+        /* TABELA COM AUTO-LAYOUT INTERNO CONTRA SOBREPOSIÇÕES */
+        .table-ranking { width: 100%; margin-bottom: 0; }
+        .table-ranking th { font-size: 11px; font-weight: 700; text-transform: uppercase; color: #94a3b8; border-top: none; border-bottom: 2px solid #e2e8f0; padding: 12px 14px; vertical-align: middle; white-space: nowrap; }
+        .table-ranking td { padding: 14px 14px; vertical-align: middle; font-size: 14px; border-top: 1px solid #f1f5f9; white-space: nowrap; }
         
-        /* Largura exata de cada coluna para evitar desalinhamento */
-        .col-num { width: 55px; text-align: left; }
-        .col-nome { width: 220px; text-align: left; }
-        .col-jogos { width: auto; text-align: center; }
-        .col-acertos { width: 80px; text-align: center; }
-
         .ranking-row { transition: background-color 0.2s; }
         .ranking-row:hover { background-color: #f8fafc; }
         
@@ -65,7 +58,7 @@
 
         @keyframes pulse { 0% { opacity: 0.4; } 50% { opacity: 1; } 100% { opacity: 0.4; } }
         
-        /* REGRAS DE IMPRESSÃO */
+        /* AJUSTES PARA VISUALIZAÇÃO DE IMPRESSÃO */
         @media print {
             * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
             body { background: #fff; padding: 10px; }
@@ -76,7 +69,6 @@
             
             .main-card, .stat-card { box-shadow: none !important; border: none !important; padding: 0 !important; margin-bottom: 20px !important; }
             .table-ranking th { color: #000 !important; border-bottom: 1px solid #000 !important; }
-            .table-ranking { min-width: 100% !important; table-layout: auto !important; }
             
             .balls-container { gap: 4px !important; width: auto !important; display: flex !important; justify-content: center !important; }
             .ball { width: 24px !important; height: 24px !important; line-height: 22px !important; font-size: 11px !important; margin: 0 !important; }
@@ -84,12 +76,12 @@
             .ball.dark-drawn { background-color: #1e293b !important; color: #ffffff !important; border-color: #1e293b !important; }
         }
 
-        /* CONFIGURAÇÃO PARA DISPOSITIVOS MÓVEIS (SEM SOBREPOSIÇÃO) */
+        /* AJUSTES MOBILE EXCLUSIVOS */
         @media (max-width: 767.98px) {
             .main-card { padding: 12px; }
-            .table-ranking td { font-size: 13px; padding: 12px 8px; }
-            .table-ranking td .font-weight-bold { font-size: 13px; }
-            .badge-winner { font-size: 10px; }
+            .table-ranking th, .table-ranking td { padding: 10px 8px; }
+            .ball { width: 30px; height: 30px; line-height: 28px; font-size: 12px; }
+            .balls-container { gap: 4px; }
             .stat-card h3 { font-size: 16px; }
         }
     </style>
@@ -186,7 +178,7 @@
             </div>
         </div>
 
-        <!-- PAINEL DIREITO: CLASSIFICAÇÃO COM ALINHAMENTO FIXO -->
+        <!-- PAINEL DIREITO: CLASSIFICAÇÃO COM ROLAGEM DE RESPONSIVIDADE NATIVA -->
         <div class="col-lg-9 col-md-8">
             <div class="main-card">
                 <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4">
@@ -210,22 +202,22 @@
                     </div>
                 </div>
 
-                <!-- Nova estrutura de rolagem para preservar o alinhamento de colunas -->
-                <div class="table-responsive-custom">
-                    <table class="table table-ranking" id="table-ranking-body">
+                <!-- O uso da classe table-responsive pura do bootstrap isola e protege o alinhamento das colunas -->
+                <div class="table-responsive">
+                    <table class="table table-ranking table-hover">
                         <thead>
                             <tr>
-                                <th class="col-num">Nº</th>
-                                <th class="col-nome">Participante</th>
-                                <th class="col-jogos text-center">Dezenas Marcadas</th>
-                                <th class="col-acertos text-center">Acertos</th>
+                                <th style="width: 70px;">Nº</th>
+                                <th style="width: 240px;">Participante</th>
+                                <th class="text-center">Dezenas Marcadas</th>
+                                <th class="text-center" style="width: 90px;">Acertos</th>
                             </tr>
                         </thead>
                         <tbody>
                             <% ranking.forEach(function(row, index) { %>
                                 <tr class="ranking-row" data-acertos="<%= row.accTot %>" data-nome="<%= row.nome.toLowerCase() %>">
-                                    <td class="col-num text-muted font-weight-bold">#<%= row.cartao %></td>
-                                    <td class="col-nome" style="white-space: normal;">
+                                    <td class="font-weight-bold text-muted">#<%= row.cartao %></td>
+                                    <td style="white-space: normal;">
                                         <div class="font-weight-bold text-dark text-uppercase" style="letter-spacing: 0.2px; line-height: 1.3;"><%= row.nome %></div>
                                         <% if (row.is_bonus) { %><span class="badge-bonus">BÔNUS</span><% } %>
                                         
@@ -237,7 +229,7 @@
                                             </div>
                                         <% } %>
                                     </td>
-                                    <td class="col-jogos" style="vertical-align: middle;">
+                                    <td>
                                         <div class="balls-container">
                                             <% row.dezenas.forEach(function(num) { 
                                                 let foiSorteda = todasDezenas.includes(num);
@@ -246,7 +238,7 @@
                                             <% }) %>
                                         </div>
                                     </td>
-                                    <td class="col-acertos text-center" style="vertical-align: middle;">
+                                    <td class="text-center">
                                         <span class="font-weight-bold <%= row.valorTotalPremio > 0 ? 'text-success' : 'text-dark' %>" style="font-size: 16px;"><%= row.accTot %></span>
                                     </td>
                                 </tr>
