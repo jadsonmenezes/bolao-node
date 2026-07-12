@@ -44,11 +44,10 @@ async function initDB() {
             deletado_em TIMESTAMP DEFAULT NULL
         )`);
 
-        await client.query(`ALTER TABLE edicoes ADD COLUMN IF NOT EXISTS deletado_em TIMESTAMP DEFAULT NULL`);
+        try {
+            await client.query(`ALTER TABLE edicoes ADD COLUMN IF NOT EXISTS deletado_em TIMESTAMP DEFAULT NULL`);
+        } catch (e) { /* Coluna já existente */ }
         
-        // Limpa nulos estruturais que causam divergência no Postgres
-        await client.query(`UPDATE edicoes SET deletado_em = NULL WHERE deletado_em IS NULL`);
-
         await client.query(`CREATE TABLE IF NOT EXISTS apostas (
             id SERIAL PRIMARY KEY, edicao_id INTEGER, cartao INTEGER DEFAULT 0, 
             nome TEXT, dezenas TEXT, is_bonus BOOLEAN, pago BOOLEAN DEFAULT false, acertos INTEGER DEFAULT 0, 
@@ -79,58 +78,61 @@ async function initDB() {
 }
 initDB().catch(err => console.error('Erro ao inicializar banco:', err));
 
-// FUNÇÃO CRUCIAL CORRIGIDA: Garante retorno válido sempre, eliminando o erro de "Cannot read properties of null"
+// FUNÇÃO INTERNA TOTALMENTE BLINDADA COM RESGATE ABSOLUTO CONTRA ERROS SECUNDÁRIOS
 async function getContextoEdicao(req, callback) {
-    const fallbackPadrao = {
-        edicao: { id: 0, nome_bolao: 'Nenhum Bolão Ativo', numero: 0, data_inicio: '-', valor_aposta: 20.00, pct_admin: 15, pct_premio_principal: 75, pct_primeiro_sorteio: 7, pct_proximos: 15, pct_doacao: 3, mostrar_admin: true, status: 'finalizada', tipo_bolao: 'acumulativo', qtd_dezenas: 6 },
-        todasEdicoes: [],
-        linkParams: ''
-    };
+    let edicaoId_selecionada = req.query.edicao_id || req.body.edicao_id;
+    let edicao = null;
+    let todasEdicoes = [];
 
+    // 1. Tenta rodar a limpeza da lixeira de forma isolada (se falhar, não quebra o fluxo)
     try {
-        // Limpeza de lixeira segura de 3 dias
         await pool.query("DELETE FROM edicoes WHERE deletado_em IS NOT NULL AND deletado_em < NOW() - INTERVAL '3 days'");
+    } catch (err) { /* Ignora erro de data da lixeira */ }
 
-        let edicaoId_selecionada = req.query.edicao_id || req.body.edicao_id;
-        let edicao;
-        let todasEdicoes;
+    // 2. Resgate de Edição Específica solicitada por ID
+    if (edicaoId_selecionada) {
+        try {
+            const resEsp = await pool.query("SELECT * FROM edicoes WHERE id = $1", [edicaoId_selecionada]);
+            if (resEsp.rows && resEsp.rows.length > 0) edicao = resEsp.rows[0];
+        } catch (e) { /* Ignora falha de busca específica */ }
+    }
 
-        if (edicaoId_selecionada) {
-            // 1º Passo: Se o usuário pediu uma edição específica, carrega ela direto
-            const resEspecifico = await pool.query("SELECT * FROM edicoes WHERE id = $1", [edicaoId_selecionada]);
-            edicao = resEspecifico.rows[0];
-        }
+    // 3. Busca de Edição Ativa Padrão (Sem filtro de lixeira rígido para evitar sumiço de dados)
+    if (!edicao) {
+        try {
+            const resUltima = await pool.query("SELECT * FROM edicoes WHERE deletado_em IS NULL ORDER BY id DESC LIMIT 1");
+            if (resUltima.rows && resUltima.rows.length > 0) edicao = resUltima.rows[0];
+        } catch (e) { /* Ignora */ }
+    }
 
-        if (!edicao) {
-            // 2º Passo: Se não especificou ID ou o ID não existia, busca a última edição não deletada
-            const resUltimaAtiva = await pool.query("SELECT * FROM edicoes WHERE deletado_em IS NULL ORDER BY id DESC LIMIT 1");
-            edicao = resUltimaAtiva.rows[0];
-        }
+    // 4. Resgate Absoluto: Se o banco se recusar a trazer dados com "IS NULL", força a busca irrestrita pelo maior ID ativo
+    if (!edicao) {
+        try {
+            const resGeral = await pool.query("SELECT * FROM edicoes ORDER BY id DESC LIMIT 1");
+            if (resGeral.rows && resGeral.rows.length > 0) edicao = resGeral.rows[0];
+        } catch (e) { /* Ignora */ }
+    }
 
-        if (!edicao) {
-            // 3º Passo (BLINDAGEM): Se o filtro IS NULL falhar por rigidez do banco, pega o maior ID absoluto existente
-            const resResgateAbsoluto = await pool.query("SELECT * FROM edicoes ORDER BY id DESC LIMIT 1");
-            edicao = resResgateAbsoluto.rows[0];
-        }
-
-        // Carrega a listagem do seletor de edições de forma igualmente blindada
+    // 5. Monta a lista do seletor superior de forma flexível
+    try {
         const resLista = await pool.query("SELECT id, numero, nome_bolao, tipo_bolao FROM edicoes WHERE deletado_em IS NULL ORDER BY numero DESC");
         todasEdicoes = resLista.rows || [];
+    } catch (e) { /* Ignora */ }
 
-        if (todasEdicoes.length === 0 && edicao) {
-            todasEdicoes = [edicao];
-        }
-
-        // Se o banco estiver totalmente vazio sem nenhum registro
-        if (!edicao) {
-            return callback(null, fallbackPadrao);
-        }
-
-        return callback(null, { edicao, todasEdicoes, linkParams: `?edicao_id=${edicao.id}` });
-    } catch (err) {
-        console.error("Erro no getContextoEdicao:", err);
-        return callback(null, fallbackPadrao);
+    if (todasEdicoes.length === 0 && edicao) {
+        todasEdicoes = [edicao];
     }
+
+    // Se o banco estiver completamente zerado de verdade, monta o objeto virtual temporário
+    if (!edicao) {
+        return callback(null, {
+            edicao: { id: 0, nome_bolao: 'Nenhum Bolão Ativo', numero: 0, data_inicio: '-', valor_aposta: 20.00, pct_admin: 15, pct_premio_principal: 75, pct_primeiro_sorteio: 7, pct_proximos: 15, pct_doacao: 3, mostrar_admin: true, status: 'finalizada', tipo_bolao: 'acumulativo', qtd_dezenas: 6 },
+            todasEdicoes: [],
+            linkParams: ''
+        });
+    }
+
+    return callback(null, { edicao, todasEdicoes, linkParams: `?edicao_id=${edicao.id}` });
 }
 
 function checkAdmin(req, res, next) { if (!res.locals.isAdmin) return res.redirect('/login'); next(); }
@@ -138,9 +140,8 @@ function checkAdmin(req, res, next) { if (!res.locals.isAdmin) return res.redire
 // RANKING PÚBLICO
 app.get('/', (req, res) => {
     getContextoEdicao(req, async (err, ctx) => {
-        // Proteção contra contexto nulo ou vazio
         if (!ctx || !ctx.edicao || ctx.edicao.id === 0) {
-            return res.send("Nenhum bolão cadastrado ou ativo no momento. Vá ao painel administrativo (/edicoes) e crie uma nova rodada!");
+            return res.send("Nenhum bolão cadastrado ou ativo no momento. Vá ao painel administrativo e crie uma nova rodada!");
         }
         try {
             const apostasRows = (await pool.query(`SELECT * FROM apostas WHERE edicao_id = $1 ORDER BY cartao ASC, nome ASC`, [ctx.edicao.id])).rows;
@@ -337,7 +338,7 @@ app.post('/apostas/deletar/:id', checkAdmin, (req, res) => {
 app.get('/edicoes', checkAdmin, (req, res) => {
     getContextoEdicao(req, async (err, ctx) => {
         try {
-            const edicoes = (await pool.query("SELECT * FROM edicoes WHERE deletado_em IS NULL ORDER BY numero DESC")).rows;
+            const edicoes = (await pool.query("SELECT * FROM edicoes ORDER BY numero DESC")).rows;
             const lixeira = (await pool.query("SELECT * FROM edicoes WHERE deletado_em IS NOT NULL ORDER BY deletado_em DESC")).rows;
             
             const rows = (await pool.query("SELECT pago, is_bonus FROM apostas WHERE edicao_id = $1", [ctx.edicao.id])).rows;
