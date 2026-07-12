@@ -11,7 +11,7 @@
         
         .print-header { display: none; }
 
-        /* QUADRO DE INFORMAÇÕES SUPERIORES DE PREMIAÇÕES */
+        /* QUADRO DE INFORMAÇÕES SUPERIORES */
         .stat-card { border: none; border-radius: 16px; padding: 20px; text-align: center; margin-bottom: 20px; height: calc(100% - 20px); box-shadow: 0 4px 15px rgba(0,0,0,0.04); background: #ffffff; transition: transform 0.2s; }
         .stat-card h6 { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #64748b; margin-bottom: 8px; }
         .stat-card h3 { font-size: 22px; font-weight: 800; color: #1e293b; margin-bottom: 0; }
@@ -32,16 +32,24 @@
         .box-concurso { background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 16px; margin-bottom: 16px; position: relative; }
         .concurso-badge { font-size: 10px; font-weight: 700; color: #2563eb; background: #eff6ff; padding: 4px 8px; border-radius: 6px; position: absolute; right: 16px; top: 16px; }
 
-        /* CONTAINER DE DEZENAS NA WEB/COMPUTADOR */
-        .balls-container { display: flex; flex-wrap: nowrap; gap: 6px; justify-content: center; width: max-content; margin: 0 auto; }
+        /* DEZENAS - CONFIGURAÇÃO SEGURA CONTRA QUEBRAS OU SOBREPOSIÇÕES */
+        .balls-container { display: flex; flex-wrap: nowrap; gap: 6px; justify-content: center; width: max-content; }
         .ball { width: 34px; height: 34px; line-height: 32px; border-radius: 50%; display: inline-block; text-align: center; font-weight: 700; font-size: 13px; border: 1px solid #cbd5e1; background: #ffffff; color: #334155; flex-shrink: 0; }
         .ball.drawn { background-color: #10b981 !important; color: #ffffff !important; border-color: #10b981 !important; }
         .ball.dark-drawn { background-color: #1e293b !important; color: #ffffff !important; border-color: #1e293b !important; }
 
-        /* Estilização da Tabela */
-        .table-ranking { width: 100%; table-layout: fixed; }
-        .table-ranking th { font-size: 11px; font-weight: 700; text-transform: uppercase; color: #94a3b8; border-top: none; padding: 12px 8px; vertical-align: middle; }
-        .table-ranking td { padding: 14px 8px; vertical-align: middle; font-size: 14px; border-top: 1px solid #f1f5f9; }
+        /* TABELA PREMIUM COM TAMANHOS DE COLUNA FIXOS PARA ALINHAMENTO PERFEITO */
+        .table-responsive-custom { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        .table-ranking { width: 100%; min-width: 600px; table-layout: fixed; margin-bottom: 0; }
+        .table-ranking th { font-size: 11px; font-weight: 700; text-transform: uppercase; color: #94a3b8; border-top: none; border-bottom: 2px solid #e2e8f0; padding: 12px 10px; vertical-align: middle; }
+        .table-ranking td { padding: 14px 10px; vertical-align: middle; font-size: 14px; border-top: 1px solid #f1f5f9; white-space: nowrap; }
+        
+        /* Largura exata de cada coluna para evitar desalinhamento */
+        .col-num { width: 55px; text-align: left; }
+        .col-nome { width: 220px; text-align: left; }
+        .col-jogos { width: auto; text-align: center; }
+        .col-acertos { width: 80px; text-align: center; }
+
         .ranking-row { transition: background-color 0.2s; }
         .ranking-row:hover { background-color: #f8fafc; }
         
@@ -57,7 +65,7 @@
 
         @keyframes pulse { 0% { opacity: 0.4; } 50% { opacity: 1; } 100% { opacity: 0.4; } }
         
-        /* CORREÇÃO CIRÚRGICA DE TAMANHO DAS DEZENAS NA IMPRESSÃO */
+        /* REGRAS DE IMPRESSÃO */
         @media print {
             * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
             body { background: #fff; padding: 10px; }
@@ -67,34 +75,22 @@
             .print-header h1 { font-size: 24px; font-weight: 800; color: #1e293b; text-transform: uppercase; }
             
             .main-card, .stat-card { box-shadow: none !important; border: none !important; padding: 0 !important; margin-bottom: 20px !important; }
-            .table-ranking th { color: #000 !important; }
+            .table-ranking th { color: #000 !important; border-bottom: 1px solid #000 !important; }
+            .table-ranking { min-width: 100% !important; table-layout: auto !important; }
             
-            /* Força tamanho pequeno e fixo nas dezenas do papel */
             .balls-container { gap: 4px !important; width: auto !important; display: flex !important; justify-content: center !important; }
             .ball { width: 24px !important; height: 24px !important; line-height: 22px !important; font-size: 11px !important; margin: 0 !important; }
             .ball.drawn { background-color: #10b981 !important; color: #ffffff !important; border-color: #10b981 !important; }
             .ball.dark-drawn { background-color: #1e293b !important; color: #ffffff !important; border-color: #1e293b !important; }
         }
 
-        /* RESPONSIVIDADE MOBILE FLUIDA E ALINHADA CONTRA SOBREPOSIÇÕES */
+        /* CONFIGURAÇÃO PARA DISPOSITIVOS MÓVEIS (SEM SOBREPOSIÇÃO) */
         @media (max-width: 767.98px) {
             .main-card { padding: 12px; }
-            
-            /* Define quebras de texto seguras e larguras adequadas para as colunas */
-            .table-ranking th:nth-child(1), .table-ranking td:nth-child(1) { width: 35px !important; padding: 8px 2px; font-size: 11px; }
-            .table-ranking th:nth-child(2), .table-ranking td:nth-child(2) { width: 38% !important; padding: 8px 4px; white-space: normal !important; word-wrap: break-word !important; }
-            .table-ranking th:nth-child(3), .table-ranking td:nth-child(3) { width: 48% !important; padding: 8px 2px; }
-            .table-ranking th:nth-child(4), .table-ranking td:nth-child(4) { width: 45px !important; padding: 8px 2px; }
-            
-            .table-ranking td { font-size: 11px; }
-            .table-ranking td .font-weight-bold { font-size: 11px; line-height: 1.2; display: block; white-space: normal !important; }
-
-            /* Escala segura baseada na largura útil (Impedindo vazamento e sobreposição) */
-            .balls-container { gap: 1.2vw; width: 100%; justify-content: start; }
-            .ball { width: 6.4vw; height: 6.4vw; line-height: calc(6.4vw - 2px); font-size: 2.6vw; margin: 0; }
-            
-            .badge-winner { font-size: 9px; padding: 2px 4px; white-space: normal; }
-            .stat-card h3 { font-size: 15px; }
+            .table-ranking td { font-size: 13px; padding: 12px 8px; }
+            .table-ranking td .font-weight-bold { font-size: 13px; }
+            .badge-winner { font-size: 10px; }
+            .stat-card h3 { font-size: 16px; }
         }
     </style>
 </head>
@@ -190,7 +186,7 @@
             </div>
         </div>
 
-        <!-- PAINEL DIREITO: CLASSIFICAÇÃO -->
+        <!-- PAINEL DIREITO: CLASSIFICAÇÃO COM ALINHAMENTO FIXO -->
         <div class="col-lg-9 col-md-8">
             <div class="main-card">
                 <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4">
@@ -214,23 +210,23 @@
                     </div>
                 </div>
 
-                <!-- Tabela com Ajustes Estritos de Layout -->
-                <div class="table-responsive">
+                <!-- Nova estrutura de rolagem para preservar o alinhamento de colunas -->
+                <div class="table-responsive-custom">
                     <table class="table table-ranking" id="table-ranking-body">
                         <thead>
                             <tr>
-                                <th style="width: 55px;">Nº</th>
-                                <th>Participante</th>
-                                <th class="text-center">Dezenas Marcadas</th>
-                                <th class="text-center" style="width: 70px;">Acertos</th>
+                                <th class="col-num">Nº</th>
+                                <th class="col-nome">Participante</th>
+                                <th class="col-jogos text-center">Dezenas Marcadas</th>
+                                <th class="col-acertos text-center">Acertos</th>
                             </tr>
                         </thead>
                         <tbody>
                             <% ranking.forEach(function(row, index) { %>
                                 <tr class="ranking-row" data-acertos="<%= row.accTot %>" data-nome="<%= row.nome.toLowerCase() %>">
-                                    <td class="text-muted font-weight-bold">#<%= row.cartao %></td>
-                                    <td>
-                                        <div class="font-weight-bold text-dark text-uppercase" style="letter-spacing: 0.2px;"><%= row.nome %></div>
+                                    <td class="col-num text-muted font-weight-bold">#<%= row.cartao %></td>
+                                    <td class="col-nome" style="white-space: normal;">
+                                        <div class="font-weight-bold text-dark text-uppercase" style="letter-spacing: 0.2px; line-height: 1.3;"><%= row.nome %></div>
                                         <% if (row.is_bonus) { %><span class="badge-bonus">BÔNUS</span><% } %>
                                         
                                         <% if (row.valorTotalPremio > 0) { %>
@@ -241,7 +237,7 @@
                                             </div>
                                         <% } %>
                                     </td>
-                                    <td class="text-center" style="vertical-align: middle;">
+                                    <td class="col-jogos" style="vertical-align: middle;">
                                         <div class="balls-container">
                                             <% row.dezenas.forEach(function(num) { 
                                                 let foiSorteda = todasDezenas.includes(num);
@@ -250,7 +246,7 @@
                                             <% }) %>
                                         </div>
                                     </td>
-                                    <td class="text-center" style="vertical-align: middle;">
+                                    <td class="col-acertos text-center" style="vertical-align: middle;">
                                         <span class="font-weight-bold <%= row.valorTotalPremio > 0 ? 'text-success' : 'text-dark' %>" style="font-size: 16px;"><%= row.accTot %></span>
                                     </td>
                                 </tr>
