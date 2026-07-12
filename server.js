@@ -81,7 +81,6 @@ initDB().catch(err => console.error('Erro ao inicializar banco:', err));
 
 // FUNÇÃO CRUCIAL CORRIGIDA: Garante retorno válido sempre, eliminando o erro de "Cannot read properties of null"
 async function getContextoEdicao(req, callback) {
-    // Objeto padrão de segurança caso ocorra falha crítica ou o banco esteja vazio
     const fallbackPadrao = {
         edicao: { id: 0, nome_bolao: 'Nenhum Bolão Ativo', numero: 0, data_inicio: '-', valor_aposta: 20.00, pct_admin: 15, pct_premio_principal: 75, pct_primeiro_sorteio: 7, pct_proximos: 15, pct_doacao: 3, mostrar_admin: true, status: 'finalizada', tipo_bolao: 'acumulativo', qtd_dezenas: 6 },
         todasEdicoes: [],
@@ -89,42 +88,47 @@ async function getContextoEdicao(req, callback) {
     };
 
     try {
-        // Tenta remover os registros antigos na lixeira de forma segura
+        // Limpeza de lixeira segura de 3 dias
         await pool.query("DELETE FROM edicoes WHERE deletado_em IS NOT NULL AND deletado_em < NOW() - INTERVAL '3 days'");
 
-        // Puxa as edições ativas
-        const todasEdicoesRes = await pool.query("SELECT id, numero, nome_bolao, tipo_bolao FROM edicoes WHERE deletado_em IS NULL ORDER BY numero DESC");
-        
         let edicaoId_selecionada = req.query.edicao_id || req.body.edicao_id;
-        let edicaoRes;
-        
+        let edicao;
+        let todasEdicoes;
+
         if (edicaoId_selecionada) {
-            edicaoRes = await pool.query("SELECT * FROM edicoes WHERE id = $1", [edicaoId_selecionada]);
-        } else {
-            edicaoRes = await pool.query("SELECT * FROM edicoes WHERE deletado_em IS NULL ORDER BY id DESC LIMIT 1");
-        }
-        
-        let todasEdicoes = todasEdicoesRes.rows || [];
-        let edicao = edicaoRes ? edicaoRes.rows[0] : null;
-
-        // Se falhar o filtro de nulo por conta do estado da coluna, força resgate geral sem restrições
-        if (!edicao || todasEdicoes.length === 0) {
-            const resgateGeral = await pool.query("SELECT * FROM edicoes ORDER BY numero DESC");
-            if (resgateGeral.rows && resgateGeral.rows.length > 0) {
-                todasEdicoes = resgateGeral.rows;
-                edicao = resgateGeral.rows[0];
-            }
+            // 1º Passo: Se o usuário pediu uma edição específica, carrega ela direto
+            const resEspecifico = await pool.query("SELECT * FROM edicoes WHERE id = $1", [edicaoId_selecionada]);
+            edicao = resEspecifico.rows[0];
         }
 
-        // Se mesmo após o resgate não existir NADA no banco, injeta o fallback estruturado
+        if (!edicao) {
+            // 2º Passo: Se não especificou ID ou o ID não existia, busca a última edição não deletada
+            const resUltimaAtiva = await pool.query("SELECT * FROM edicoes WHERE deletado_em IS NULL ORDER BY id DESC LIMIT 1");
+            edicao = resUltimaAtiva.rows[0];
+        }
+
+        if (!edicao) {
+            // 3º Passo (BLINDAGEM): Se o filtro IS NULL falhar por rigidez do banco, pega o maior ID absoluto existente
+            const resResgateAbsoluto = await pool.query("SELECT * FROM edicoes ORDER BY id DESC LIMIT 1");
+            edicao = resResgateAbsoluto.rows[0];
+        }
+
+        // Carrega a listagem do seletor de edições de forma igualmente blindada
+        const resLista = await pool.query("SELECT id, numero, nome_bolao, tipo_bolao FROM edicoes WHERE deletado_em IS NULL ORDER BY numero DESC");
+        todasEdicoes = resLista.rows || [];
+
+        if (todasEdicoes.length === 0 && edicao) {
+            todasEdicoes = [edicao];
+        }
+
+        // Se o banco estiver totalmente vazio sem nenhum registro
         if (!edicao) {
             return callback(null, fallbackPadrao);
         }
 
         return callback(null, { edicao, todasEdicoes, linkParams: `?edicao_id=${edicao.id}` });
     } catch (err) {
-        console.error("Erro interno no getContextoEdicao, ativando salvaguarda:", err);
-        // Em caso de erro catastrófico de conexão, entrega o fallback em vez de quebrar a linha com null
+        console.error("Erro no getContextoEdicao:", err);
         return callback(null, fallbackPadrao);
     }
 }
