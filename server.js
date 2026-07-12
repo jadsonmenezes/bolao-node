@@ -78,26 +78,35 @@ async function initDB() {
 }
 initDB().catch(err => console.error('Erro ao inicializar banco:', err));
 
-// FUNÇÃO INTERNA TOTALMENTE BLINDADA COM RESGATE ABSOLUTO CONTRA ERROS SECUNDÁRIOS
+// FUNÇÃO INTERNA CORRIGIDA COM PROTEÇÃO ABSOLUTA CONTRA REQS INDEFINIDOS
 async function getContextoEdicao(req, callback) {
-    let edicaoId_selecionada = req.query.edicao_id || req.body.edicao_id;
+    const fallbackPadrao = {
+        edicao: { id: 0, nome_bolao: 'Nenhum Bolão Ativo', numero: 0, data_inicio: '-', valor_aposta: 20.00, pct_admin: 15, pct_premio_principal: 75, pct_primeiro_sorteio: 7, pct_proximos: 15, pct_doacao: 3, mostrar_admin: true, status: 'finalizada', tipo_bolao: 'acumulativo', qtd_dezenas: 6 },
+        todasEdicoes: [],
+        linkParams: ''
+    };
+
+    // CORREÇÃO CIRÚRGICA: Se o req não existir, cria uma estrutura mínima para evitar ler propriedades de undefined
+    const requestSeguro = req || { query: {}, body: {} };
+    let edicaoId_selecionada = (requestSeguro.query ? requestSeguro.query.edicao_id : null) || (requestSeguro.body ? requestSeguro.body.edicao_id : null);
+    
     let edicao = null;
     let todasEdicoes = [];
 
-    // 1. Tenta rodar a limpeza da lixeira de forma isolada
+    // Tenta rodar a limpeza da lixeira de forma isolada
     try {
         await pool.query("DELETE FROM edicoes WHERE deletado_em IS NOT NULL AND deletado_em < NOW() - INTERVAL '3 days'");
     } catch (err) { /* Ignora erro secundário */ }
 
-    // 2. Resgate de Edição Específica solicitada por ID
+    // Resgate por ID específico
     if (edicaoId_selecionada) {
         try {
             const resEsp = await pool.query("SELECT * FROM edicoes WHERE id = $1", [edicaoId_selecionada]);
             if (resEsp.rows && resEsp.rows.length > 0) edicao = resEsp.rows[0];
-        } catch (e) { /* Ignora falha de busca específica */ }
+        } catch (e) { /* Ignora */ }
     }
 
-    // 3. Busca de Edição Ativa Padrão (Sem filtro de lixeira rígido para evitar sumiço de dados)
+    // Busca de Edição Ativa Padrão
     if (!edicao) {
         try {
             const resUltima = await pool.query("SELECT * FROM edicoes WHERE deletado_em IS NULL ORDER BY id DESC LIMIT 1");
@@ -105,7 +114,7 @@ async function getContextoEdicao(req, callback) {
         } catch (e) { /* Ignora */ }
     }
 
-    // 4. Resgate Absoluto: Se o banco se recusar a trazer dados com "IS NULL", força a busca irrestrita pelo maior ID ativo
+    // Resgate Geral se o filtro falhar
     if (!edicao) {
         try {
             const resGeral = await pool.query("SELECT * FROM edicoes ORDER BY id DESC LIMIT 1");
@@ -113,7 +122,7 @@ async function getContextoEdicao(req, callback) {
         } catch (e) { /* Ignora */ }
     }
 
-    // 5. Monta a lista do seletor superior de forma flexível
+    // Monta a lista do seletor superior
     try {
         const resLista = await pool.query("SELECT id, numero, nome_bolao, tipo_bolao FROM edicoes ORDER BY numero DESC");
         todasEdicoes = resLista.rows || [];
@@ -123,13 +132,8 @@ async function getContextoEdicao(req, callback) {
         todasEdicoes = [edicao];
     }
 
-    // Se o banco estiver completamente zerado de verdade, monta o objeto virtual temporário
     if (!edicao) {
-        return callback(null, {
-            edicao: { id: 0, nome_bolao: 'Nenhum Bolão Ativo', numero: 0, data_inicio: '-', valor_aposta: 20.00, pct_admin: 15, pct_premio_principal: 75, pct_primeiro_sorteio: 7, pct_proximos: 15, pct_doacao: 3, mostrar_admin: true, status: 'finalizada', tipo_bolao: 'acumulativo', qtd_dezenas: 6 },
-            todasEdicoes: [],
-            linkParams: ''
-        });
+        return callback(null, fallbackPadrao);
     }
 
     return callback(null, { edicao, todasEdicoes, linkParams: `?edicao_id=${edicao.id}` });
@@ -137,10 +141,9 @@ async function getContextoEdicao(req, callback) {
 
 function checkAdmin(req, res, next) { if (!res.locals.isAdmin) return res.redirect('/login'); next(); }
 
-// RANKING PÚBLICO - CORRIGIDO SEM BLOQUEIOS FRÁGEIS
+// RANKING PÚBLICO
 app.get('/', (req, res) => {
     getContextoEdicao(req, async (err, ctx) => {
-        // Se realmente não houver nenhuma edição cadastrada no banco inteiro, exibe uma resposta limpa
         if (!ctx || !ctx.edicao || ctx.edicao.id === 0) {
             return res.send("<div style='text-align:center; margin-top:50px; font-family:sans-serif;'><h2>Nenhum bolão ativo encontrado.</h2><p>Acesse o painel e cadastre sua primeira rodada!</p></div>");
         }
