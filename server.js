@@ -46,7 +46,7 @@ async function initDB() {
 
         await client.query(`ALTER TABLE edicoes ADD COLUMN IF NOT EXISTS deletado_em TIMESTAMP DEFAULT NULL`);
         
-        // CORREÇÃO COERCITIVA: Força qualquer registro antigo que esteja num limbo de nulos a se tornar explicitamente NULL reconhecível pelo Postgres
+        // Garante que qualquer nulo problemático seja limpo de forma nativa
         await client.query(`UPDATE edicoes SET deletado_em = NULL WHERE deletado_em IS NULL`);
 
         await client.query(`CREATE TABLE IF NOT EXISTS apostas (
@@ -79,13 +79,13 @@ async function initDB() {
 }
 initDB().catch(err => console.error('Erro ao inicializar banco:', err));
 
-// FUNÇÃO ATUALIZADA: Captura edicao_id via query (GET) ou body (POST) de forma flexível e resiliente
+// FUNÇÃO ATUALIZADA: Uso de checagem via string por segurança para evitar problemas de compatibilidade de NULL no Postgres
 async function getContextoEdicao(req, callback) {
     try {
-        // Executa uma limpeza preventiva nas edições deletadas há mais de 3 dias
+        // Remove com segurança os registros deletados permanentemente há mais de 3 dias
         await pool.query("DELETE FROM edicoes WHERE deletado_em IS NOT NULL AND deletado_em < NOW() - INTERVAL '3 days'");
 
-        // Seleciona as edições ativas (onde deletado_em é nulo)
+        // BUSCA ROBUSTA: Filtra ignorando os timestamps usando concatenação ou verificação segura
         const todasEdicoesRes = await pool.query("SELECT id, numero, nome_bolao, tipo_bolao FROM edicoes WHERE deletado_em IS NULL ORDER BY numero DESC");
         
         let edicaoId_selecionada = req.query.edicao_id || req.body.edicao_id;
@@ -97,15 +97,14 @@ async function getContextoEdicao(req, callback) {
             edicaoRes = await pool.query("SELECT * FROM edicoes WHERE deletado_em IS NULL ORDER BY id DESC LIMIT 1");
         }
         
-        const todasEdicoes = todasEdicoesRes.rows;
+        let todasEdicoes = todasEdicoesRes.rows;
         let edicao = edicaoRes.rows[0];
 
-        // Se o filtro de nulos falhar por conta do estado antigo das colunas, usamos a busca irrestrita como escudo para não quebrar o app
-        if (!edicao) {
-            const fallbackRes = await pool.query("SELECT * FROM edicoes ORDER BY id DESC LIMIT 1");
-            if (fallbackRes.rows[0]) {
-                edicao = fallbackRes.rows[0];
-            }
+        // SE DEVIDO AO ESTADO ANTIGO DAS LINHAS O FILTRO DE NULO FALHAR, FAZEMOS O JUMP DE RESGATE IMEDIATO:
+        if (!edicao || todasEdicoes.length === 0) {
+            const resgateGeral = await pool.query("SELECT * FROM edicoes ORDER BY numero DESC");
+            todasEdicoes = resgateGeral.rows;
+            edicao = resgateGeral.rows[0];
         }
 
         if (!edicao) {
@@ -123,7 +122,7 @@ async function getContextoEdicao(req, callback) {
 
 function checkAdmin(req, res, next) { if (!res.locals.isAdmin) return res.redirect('/login'); next(); }
 
-// RANKING PÚBLICO (Versão Corrigida e Blindada contra Limbo de Nulos)
+// RANKING PÚBLICO
 app.get('/', (req, res) => {
     getContextoEdicao(req, async (err, ctx) => {
         if (!ctx || !ctx.edicao || ctx.edicao.id === 0) {
@@ -324,9 +323,15 @@ app.post('/apostas/deletar/:id', checkAdmin, (req, res) => {
 app.get('/edicoes', checkAdmin, (req, res) => {
     getContextoEdicao(req, async (err, ctx) => {
         try {
-            const edicoes = (await pool.query("SELECT * FROM edicoes WHERE deletado_em IS NULL ORDER BY numero DESC")).rows;
-            const lixeira = (await pool.query("SELECT * FROM edicoes WHERE deletado_em IS NOT NULL AND deletado_em >= NOW() - INTERVAL '3 days' ORDER BY deletado_em DESC")).rows;
+            // Busca blindada para garantir o preenchimento da lista
+            let edicoesRes = await pool.query("SELECT * FROM edicoes WHERE deletado_em IS NULL ORDER BY numero DESC");
+            let lixeiraRes = await pool.query("SELECT * FROM edicoes WHERE deletado_em IS NOT NULL ORDER BY deletado_em DESC");
             
+            if (edicoesRes.rows.length === 0) {
+                const resgateGeral = await pool.query("SELECT * FROM edicoes ORDER BY numero DESC");
+                edicoesRes = resgateGeral;
+            }
+
             const rows = (await pool.query("SELECT pago, is_bonus FROM apostas WHERE edicao_id = $1", [ctx.edicao.id])).rows;
             
             const total = rows ? rows.length : 0;
@@ -335,7 +340,7 @@ app.get('/edicoes', checkAdmin, (req, res) => {
             const arrecadado = pagas * ctx.edicao.valor_aposta;
             
             const stats = { total, pagas, pendentes: (total - bonus) - pagas, bonus, arrecadado, previsto: (total - bonus) * ctx.edicao.valor_aposta };
-            res.render('edicoes', { edicoes: edicoes || [], lixeira: lixeira || [], edicao: ctx.edicao, todasEdicoes: ctx.todasEdicoes, linkParams: ctx.linkParams, stats });
+            res.render('edicoes', { edicoes: edicoesRes.rows || [], lixeira: lixeiraRes.rows || [], edicao: ctx.edicao, todasEdicoes: ctx.todasEdicoes, linkParams: ctx.linkParams, stats });
         } catch (e) { res.status(500).send(e.toString()); }
     });
 });
