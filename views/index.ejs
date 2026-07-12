@@ -2,7 +2,7 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title><%= edicao.nome_bolao %> - Classificação Oficial</title>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.1/css/all.min.css">
@@ -23,22 +23,23 @@
         .box-concurso { background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 16px; margin-bottom: 16px; position: relative; }
         .concurso-badge { font-size: 10px; font-weight: 700; color: #2563eb; background: #eff6ff; padding: 4px 8px; border-radius: 6px; position: absolute; right: 16px; top: 16px; }
 
-        /* REGRAS DAS BOLAS */
-        .balls-container { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+        /* REGRAS DE BOLAS ADAPTÁVEIS CONTRA QUEBRAS */
+        .balls-container { display: flex; flex-wrap: nowrap; justify-content: center; gap: 5px; }
         .ball { width: 32px; height: 32px; line-height: 30px; border-radius: 50%; display: inline-block; text-align: center; font-weight: 700; font-size: 13px; border: 1px solid #cbd5e1; background: #ffffff; color: #334155; flex-shrink: 0; }
         .ball.drawn { background-color: #10b981 !important; color: #ffffff !important; border-color: #10b981 !important; }
         .ball.dark-drawn { background-color: #1e293b !important; color: #ffffff !important; border-color: #1e293b !important; }
 
         /* Estilização da Tabela de Classificação */
-        .table-ranking th { font-size: 11px; font-weight: 700; text-transform: uppercase; color: #94a3b8; border-top: none; padding: 12px 16px; vertical-align: middle; }
-        .table-ranking td { padding: 16px; vertical-align: middle; font-size: 14px; border-top: 1px solid #f1f5f9; }
+        .table-ranking { width: 100%; table-layout: fixed; }
+        .table-ranking th { font-size: 11px; font-weight: 700; text-transform: uppercase; color: #94a3b8; border-top: none; padding: 12px 10px; vertical-align: middle; }
+        .table-ranking td { padding: 14px 10px; vertical-align: middle; font-size: 14px; border-top: 1px solid #f1f5f9; overflow: hidden; text-overflow: ellipsis; }
         .ranking-row { transition: background-color 0.2s; }
         .ranking-row:hover { background-color: #f8fafc; }
         
         /* Badges de Premiação e Ganhadores */
-        .badge-winner { background-color: #e6f4ea; color: #137333; font-weight: 700; font-size: 11px; padding: 4px 10px; border-radius: 6px; display: inline-flex; align-items: center; margin-top: 4px; box-shadow: 0 2px 4px rgba(19,115,51,0.08); }
+        .badge-winner { background-color: #e6f4ea; color: #137333; font-weight: 700; font-size: 11px; padding: 4px 10px; border-radius: 6px; display: inline-flex; align-items: center; margin-top: 4px; box-shadow: 0 2px 4px rgba(19,115,51,0.08); white-space: nowrap; }
         .badge-winner i { margin-right: 5px; font-size: 12px; }
-        .badge-bonus { background-color: #fef3c7; color: #d97706; font-weight: 700; font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-left: 6px; display: inline-block; }
+        .badge-bonus { background-color: #fef3c7; color: #d97706; font-weight: 700; font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-left: 4px; display: inline-block; }
         
         /* Controles Interativos */
         .search-wrapper { position: relative; max-width: 300px; width: 100%; }
@@ -49,86 +50,7 @@
 
         @keyframes pulse { 0% { opacity: 0.4; } 50% { opacity: 1; } 100% { opacity: 0.4; } }
         
-        /* BLINDAGEM MOBILE AVANÇADA (SEM CO-EXISTENCIA HORIZONTAL FORÇADA) */
-        @media (max-width: 768px) {
-            /* Desativa o formato de tabela cru no celular para não espremer */
-            .table-ranking, .table-ranking thead, .table-ranking tbody, .table-ranking tr, .table-ranking th, .table-ranking td { 
-                display: block; 
-                width: 100%; 
-                text-align: left !important;
-            }
-            .table-ranking thead { display: none; } /* Esconde o cabeçalho antigo */
-            
-            .ranking-row { 
-                background: #ffffff;
-                border: 1px solid #e2e8f0;
-                border-radius: 12px;
-                padding: 14px;
-                margin-bottom: 12px;
-                box-shadow: 0 2px 6px rgba(0,0,0,0.01);
-            }
-            
-            .table-ranking td { 
-                border-top: none !important; 
-                padding: 4px 0 !important; 
-            }
-            
-            /* Cartão identificador */
-            .table-ranking tr td:nth-child(1) {
-                font-size: 12px;
-                color: #64748b;
-                display: inline-block;
-                width: auto;
-                margin-right: 5px;
-            }
-            
-            /* Nome e bloco superior */
-            .table-ranking tr td:nth-child(2) {
-                display: block;
-                margin-bottom: 8px;
-            }
-            
-            /* Centraliza as bolas abaixo do nome ocupando toda a tela */
-            .table-ranking tr td:nth-child(3) {
-                display: block;
-                background: #f8fafc;
-                padding: 10px !important;
-                border-radius: 8px;
-                margin-bottom: 8px;
-            }
-            .balls-container {
-                justify-content: space-between; /* Distribui igualmente os 6 números */
-                flex-wrap: nowrap;
-            }
-            .ball {
-                width: 34px; /* Ligeiramente maior para toque confortável */
-                height: 34px;
-                line-height: 32px;
-                font-size: 12px;
-            }
-
-            /* Acertos em destaque lateral ou inferior */
-            .table-ranking tr td:nth-child(4) {
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                font-size: 14px;
-                font-weight: bold;
-                padding-top: 6px !important;
-                border-top: 1px dashed #e2e8f0 !important;
-            }
-            .table-ranking tr td:nth-child(4)::before {
-                content: "Total de Acertos:";
-                color: #64748b;
-                font-weight: 500;
-            }
-            .table-ranking tr td:nth-child(4) h4 {
-                font-size: 18px !important;
-                margin: 0 !important;
-            }
-        }
-
-        /* IMPRESSÃO CONFIG */
+        /* CORES REAIS COMPATÍVEIS COM IMPRESSÃO */
         @media print {
             * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
             body { background: #fff; }
@@ -137,6 +59,24 @@
             .table-ranking th { color: #000 !important; }
             .ball.drawn { background-color: #10b981 !important; color: #ffffff !important; border-color: #10b981 !important; }
             .ball.dark-drawn { background-color: #1e293b !important; color: #ffffff !important; border-color: #1e293b !important; }
+        }
+
+        /* AJUSTE MULTI-RESOLUÇÃO DINÂMICO PARA SMARTPHONES */
+        @media (max-width: 767.98px) {
+            .main-card { padding: 12px; }
+            .table-ranking th:nth-child(1), .table-ranking td:nth-child(1) { width: 45px !important; padding: 8px 4px; font-size: 11px; }
+            .table-ranking th:nth-child(2), .table-ranking td:nth-child(2) { width: 40% !important; padding: 8px 4px; }
+            .table-ranking th:nth-child(3), .table-ranking td:nth-child(3) { width: 45% !important; padding: 8px 2px; }
+            .table-ranking th:nth-child(4), .table-ranking td:nth-child(4) { width: 45px !important; padding: 8px 4px; }
+            
+            .table-ranking td { font-size: 11px; }
+            .table-ranking td .font-weight-bold { font-size: 11px; }
+
+            /* Redução em escala milimétrica para as dezenas não quebrarem e ocuparem uma linha justa */
+            .ball { width: 21px; height: 21px; line-height: 20px; font-size: 10px; margin: 0 1px; }
+            .balls-container { gap: 2px; justify-content: flex-start; }
+            .badge-winner { font-size: 9px; padding: 2px 6px; }
+            .stat-card h3 { font-size: 16px; }
         }
     </style>
 </head>
@@ -184,14 +124,14 @@
                 <h3>R$ <%= stats.arrecadacaoAtual.toFixed(2) %></h3>
             </div>
         </div>
-        <div class="col-md-2 col-12 mb-3">
+        <div class="col-md-2 col-6 mb-3">
             <div class="stat-card">
                 <h6>Status do Bolão</h6>
                 <h3>
                     <% if (edicao.status === 'finalizada' || stats.temSena) { %>
-                        <span class="status-dot"></span><span style="color:#dc3545; font-weight:700;">ENCERRADO</span>
+                        <span class="status-dot"></span><span style="color:#dc3545; font-weight:700; font-size:13px;">ENCERRADO</span>
                     <% } else { %>
-                        <span class="status-dot" style="background-color:#10b981;"></span><span style="color:#10b981; font-weight:700;">EM ANDAMENTO</span>
+                        <span class="status-dot" style="background-color:#10b981;"></span><span style="color:#10b981; font-weight:700; font-size:13px;">ATIVO</span>
                     <% } %>
                 </h3>
             </div>
@@ -205,14 +145,14 @@
                 <div class="card-title-custom mb-3"><i class="fas fa-bullhorn mr-2 text-primary"></i> Concursos Sorteados</div>
                 
                 <% if (sorteios.length === 0) { %>
-                    <div class="text-center text-muted py-4 font-italic">Nenhum sorteio realizado nesta rodada.</div>
+                    <div class="text-center text-muted py-4 font-italic">Nenhum sorteio realizado.</div>
                 <% } %>
                 
                 <% sorteios.forEach(function(s, idx) { %>
                     <div class="box-concurso">
-                        <div class="concurso-badge"><%= idx === 0 ? '1º SORTEIO' : 'SORTEIO ACUMULADO' %></div>
+                        <div class="concurso-badge"><%= idx === 0 ? '1º SORTEIO' : 'ACUMULADO' %></div>
                         <div class="text-muted font-weight-bold mb-2" style="font-size: 11px;">CONCURSO Nº <%= s.concurso %></div>
-                        <div class="mt-2 d-flex flex-wrap justify-content-center" style="gap:4px;">
+                        <div class="mt-2 d-flex flex-wrap justify-content-start" style="gap:4px;">
                             <% s.dezenas.forEach(function(num) { %>
                                 <span class="ball dark-drawn"><%= String(num).padStart(2, '0') %></span>
                             <% }) %>
@@ -226,7 +166,7 @@
             </div>
         </div>
 
-        <!-- PAINEL DIREITO: CLASSIFICAÇÃO / RANKING -->
+        <!-- PAINEL DIREITO: CLASSIFICAÇÃO / RANKING EXCLUSIVO LINEAR -->
         <div class="col-lg-9 col-md-8">
             <div class="main-card">
                 <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4">
@@ -239,7 +179,7 @@
                                 let acertosExistentes = [...new Set(ranking.map(r => r.accTot))].sort((a,b) => b - a);
                                 acertosExistentes.forEach(function(qtd) { 
                             %>
-                                <option value="<%= qtd %>"><option value="<%= qtd %>"><%= qtd %> Pontos</option>
+                                <option value="<%= qtd %>"><%= qtd %> Pontos</option>
                             <% }); %>
                         </select>
 
@@ -250,15 +190,15 @@
                     </div>
                 </div>
 
-                <!-- Estrutura Híbrida Inteligente (Tabela no PC / Grid de Cards Adaptados no Celular) -->
+                <!-- Tabela Travada de Forma Horizontal Estrita -->
                 <div class="table-responsive" style="overflow-x: hidden;">
                     <table class="table table-ranking" id="table-ranking-body">
                         <thead>
                             <tr>
-                                <th style="width: 60px;">Nº</th>
-                                <th>Participante</th>
-                                <th class="text-center">Dezenas Marcadas</th>
-                                <th class="text-center" style="width: 100px;">Acertos</th>
+                                <th style="width: 55px;">Nº</th>
+                                <th style="width: 35%;">Participante</th>
+                                <th class="text-center" style="width: 50%;">Dezenas Marcadas</th>
+                                <th class="text-center" style="width: 55px;">Acertos</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -266,19 +206,18 @@
                                 <tr class="ranking-row" data-acertos="<%= row.accTot %>" data-nome="<%= row.nome.toLowerCase() %>">
                                     <td class="text-muted font-weight-bold">#<%= row.cartao %></td>
                                     <td>
-                                        <span class="text-muted font-weight-bold d-inline-block d-md-none">#<%= row.cartao %></span>
-                                        <div class="font-weight-bold text-dark text-uppercase d-inline-block" style="letter-spacing: 0.3px; line-height: 1.2;"><%= row.nome %></div>
+                                        <div class="font-weight-bold text-dark text-uppercase text-truncate" style="letter-spacing: 0.2px; max-width: 180px;"><%= row.nome %></div>
                                         <% if (row.is_bonus) { %><span class="badge-bonus">BÔNUS</span><% } %>
                                         
                                         <% if (row.valorTotalPremio > 0) { %>
-                                            <div>
+                                            <div class="text-truncate">
                                                 <span class="badge-winner">
-                                                    <i class="fas fa-trophy"></i> Ganhador (<%= row.accTot %> Pts): R$ <%= row.valorTotalPremio.toFixed(2) %>
+                                                    <i class="fas fa-trophy"></i> R$ <%= row.valorTotalPremio.toFixed(2) %>
                                                 </span>
                                             </div>
                                         <% } %>
                                     </td>
-                                    <td class="text-center">
+                                    <td class="text-center" style="vertical-align: middle;">
                                         <div class="balls-container">
                                             <% row.dezenas.forEach(function(num) { 
                                                 let foiSorteda = todasDezenas.includes(num);
@@ -287,8 +226,8 @@
                                             <% }) %>
                                         </div>
                                     </td>
-                                    <td class="text-center">
-                                        <h4 class="font-weight-bold mb-0 <%= row.valorTotalPremio > 0 ? 'text-success' : 'text-dark' %>" style="font-size: 18px;"><%= row.accTot %></h4>
+                                    <td class="text-center" style="vertical-align: middle;">
+                                        <span class="font-weight-bold <%= row.valorTotalPremio > 0 ? 'text-success' : 'text-dark' %>" style="font-size: 16px;"><%= row.accTot %></span>
                                     </td>
                                 </tr>
                             <% }) %>
@@ -308,7 +247,7 @@ function filtrarTabela() {
     const linhas = document.querySelectorAll('.ranking-row');
 
     linhas.forEach(linha => {
-        const nomeParticipante = inline = linha.getAttribute('data-nome');
+        const nomeParticipante = Gabriel = linha.getAttribute('data-nome');
         const acertosParticipante = linha.getAttribute('data-acertos');
 
         const correspondeBusca = nomeParticipante.includes(inputBusca);
