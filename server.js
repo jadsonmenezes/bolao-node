@@ -46,6 +46,9 @@ async function initDB() {
 
         await client.query(`ALTER TABLE edicoes ADD COLUMN IF NOT EXISTS deletado_em TIMESTAMP DEFAULT NULL`);
         
+        // CORREÇÃO COERCITIVA: Força qualquer registro antigo que esteja num limbo de nulos a se tornar explicitamente NULL reconhecível pelo Postgres
+        await client.query(`UPDATE edicoes SET deletado_em = NULL WHERE deletado_em IS NULL`);
+
         await client.query(`CREATE TABLE IF NOT EXISTS apostas (
             id SERIAL PRIMARY KEY, edicao_id INTEGER, cartao INTEGER DEFAULT 0, 
             nome TEXT, dezenas TEXT, is_bonus BOOLEAN, pago BOOLEAN DEFAULT false, acertos INTEGER DEFAULT 0, 
@@ -79,7 +82,7 @@ initDB().catch(err => console.error('Erro ao inicializar banco:', err));
 // FUNÇÃO ATUALIZADA: Captura edicao_id via query (GET) ou body (POST) de forma flexível e resiliente
 async function getContextoEdicao(req, callback) {
     try {
-        // Remove com segurança os registros na lixeira há mais de 3 dias
+        // Executa uma limpeza preventiva nas edições deletadas há mais de 3 dias
         await pool.query("DELETE FROM edicoes WHERE deletado_em IS NOT NULL AND deletado_em < NOW() - INTERVAL '3 days'");
 
         // Seleciona as edições ativas (onde deletado_em é nulo)
@@ -97,7 +100,7 @@ async function getContextoEdicao(req, callback) {
         const todasEdicoes = todasEdicoesRes.rows;
         let edicao = edicaoRes.rows[0];
 
-        // Fallback preventivo caso a query de nulos retorne vazia por divergência de estado das colunas antigas
+        // Se o filtro de nulos falhar por conta do estado antigo das colunas, usamos a busca irrestrita como escudo para não quebrar o app
         if (!edicao) {
             const fallbackRes = await pool.query("SELECT * FROM edicoes ORDER BY id DESC LIMIT 1");
             if (fallbackRes.rows[0]) {
@@ -120,11 +123,11 @@ async function getContextoEdicao(req, callback) {
 
 function checkAdmin(req, res, next) { if (!res.locals.isAdmin) return res.redirect('/login'); next(); }
 
-// RANKING PÚBLICO
+// RANKING PÚBLICO (Versão Corrigida e Blindada contra Limbo de Nulos)
 app.get('/', (req, res) => {
     getContextoEdicao(req, async (err, ctx) => {
         if (!ctx || !ctx.edicao || ctx.edicao.id === 0) {
-            return res.send("Nenhum bolão cadastrado ou ativo no momento. Vá ao painel /edicoes e crie uma nova rodada!");
+            return res.send("Nenhum bolão cadastrado ou ativo no momento. Vá ao painel administrativo e crie uma nova rodada!");
         }
         try {
             const apostasRows = (await pool.query(`SELECT * FROM apostas WHERE edicao_id = $1 ORDER BY cartao ASC, nome ASC`, [ctx.edicao.id])).rows;
@@ -255,9 +258,9 @@ app.post('/usuarios/deletar/:id', checkAdmin, async (req, res) => {
 app.get('/apostas', checkAdmin, (req, res) => {
     getContextoEdicao(req, async (err, ctx) => {
         try {
-            const rows = (await pool.query(`SELECT * FROM apostas WHERE edicao_id = $1 ORDER BY cartao ASC, nome ASC`, [ctx.edicao.id])).rows;
+            const rows = (await pool.query("SELECT * FROM apostas WHERE edicao_id = $1 ORDER BY cartao ASC, nome ASC", [ctx.edicao.id])).rows;
             const apostas = (rows || []).map(r => ({ ...r, dezenas: JSON.parse(r.dezenas) }));
-            const srt = (await pool.query(`SELECT COUNT(*) as count FROM sorteios WHERE edicao_id = $1`, [ctx.edicao.id])).rows[0];
+            const srt = (await pool.query("SELECT COUNT(*) as count FROM sorteios WHERE edicao_id = $1", [ctx.edicao.id])).rows[0];
             
             let edicaoTravada = srt ? parseInt(srt.count) > 0 : false;
             let possuiSena = ctx.edicao.tipo_bolao === 'acumulativo' && apostas.some(a => a.acertos >= ctx.edicao.qtd_dezenas);
@@ -278,15 +281,15 @@ app.post('/apostas/salvar', checkAdmin, (req, res) => {
         let baseName = nome.trim();
 
         try {
-            const rows = (await pool.query(`SELECT id, nome FROM apostas WHERE edicao_id = $1 AND nome LIKE $2`, [ctx.edicao.id, baseName + '%'])).rows;
+            const rows = (await pool.query("SELECT id, nome FROM apostas WHERE edicao_id = $1 AND nome LIKE $2", [ctx.edicao.id, baseName + '%'])).rows;
             let finalName = baseName; let count = 1;
             const existingNames = rows.filter(r => r.id != id).map(r => r.nome.toLowerCase());
             while (existingNames.includes(finalName.toLowerCase())) { count++; finalName = `${baseName} ${count}`; }
 
             if (id) {
-                await pool.query(`UPDATE apostas SET nome=$1, dezenas=$2, is_bonus=$3, pago=$4, tem_erro=0 WHERE id=$5`, [finalName, JSON.stringify(arrDezenas), bChecked, pChecked, id]);
+                await pool.query("UPDATE apostas SET nome=$1, dezenas=$2, is_bonus=$3, pago=$4, tem_erro=0 WHERE id=$5", [finalName, JSON.stringify(arrDezenas), bChecked, pChecked, id]);
             } else {
-                await pool.query(`INSERT INTO apostas (edicao_id, nome, dezenas, is_bonus, pago, tem_erro) VALUES ($1, $2, $3, $4, $5, 0)`, [ctx.edicao.id, finalName, JSON.stringify(arrDezenas), bChecked, pChecked]);
+                await pool.query("INSERT INTO apostas (edicao_id, nome, dezenas, is_bonus, pago, tem_erro) VALUES ($1, $2, $3, $4, $5, 0)", [ctx.edicao.id, finalName, JSON.stringify(arrDezenas), bChecked, pChecked]);
             }
             res.redirect(`/apostas?edicao_id=${ctx.edicao.id}`);
         } catch (e) { res.status(500).send(e.toString()); }
@@ -305,14 +308,14 @@ app.post('/apostas/limpar-tudo', checkAdmin, (req, res) => {
 
 app.post('/apostas/toggle-pago/:id', checkAdmin, (req, res) => {
     getContextoEdicao(req, async (err, ctx) => {
-        await pool.query(`UPDATE apostas SET pago = NOT pago WHERE id = $1`, [req.params.id]);
+        await pool.query("UPDATE apostas SET pago = NOT pago WHERE id = $1", [req.params.id]);
         res.redirect(`/apostas?edicao_id=${ctx.edicao.id}`);
     });
 });
 
 app.post('/apostas/deletar/:id', checkAdmin, (req, res) => {
     getContextoEdicao(req, async (err, ctx) => {
-        await pool.query(`DELETE FROM apostas WHERE id = $1`, [req.params.id]);
+        await pool.query("DELETE FROM apostas WHERE id = $1", [req.params.id]);
         res.redirect(`/apostas?edicao_id=${ctx.edicao.id}`);
     });
 });
@@ -345,16 +348,15 @@ app.post('/edicoes/salvar', checkAdmin, async (req, res) => {
     
     try {
         if (id && id !== '0') {
-            await pool.query(`UPDATE edicoes SET nome_bolao=$1, data_inicio=$2, valor_aposta=$3, pct_admin=$4, pct_premio_principal=$5, pct_primeiro_sorteio=$6, pct_proximos=$7, pct_doacao=$8, mostrar_admin=$9, tipo_bolao=$10, qtd_dezenas=$11 WHERE id=$12`, [nome_bolao, data_inicio, valor_aposta, pct_admin, pct_premio_principal, pct_primeiro_sorteio, pct_proximos, pct_doacao, mAdmin, tipo, numDezenas, id]);
+            await pool.query("UPDATE edicoes SET nome_bolao=$1, data_inicio=$2, valor_aposta=$3, pct_admin=$4, pct_premio_principal=$5, pct_primeiro_sorteio=$6, pct_proximos=$7, pct_doacao=$8, mostrar_admin=$9, tipo_bolao=$10, qtd_dezenas=$11 WHERE id=$12", [nome_bolao, data_inicio, valor_aposta, pct_admin, pct_premio_principal, pct_primeiro_sorteio, pct_proximos, pct_doacao, mAdmin, tipo, numDezenas, id]);
             res.redirect(`/edicoes?edicao_id=${id}`);
         } else {
-            const ult = (await pool.query("SELECT * FROM edicoes WHERE deletado_em IS NULL ORDER BY id DESC LIMIT 1")).rows[0];
+            const ult = (await pool.query("SELECT * FROM edicoes ORDER BY id DESC LIMIT 1")).rows[0];
             const proximoNumero = ult ? ult.numero + 1 : 1;
             
-            const insertRes = await pool.query(`INSERT INTO edicoes (nome_bolao, numero, data_inicio, valor_aposta, pct_admin, pct_premio_principal, pct_primeiro_sorteio, pct_proximos, pct_doacao, mostrar_admin, status, tipo_bolao, qtd_dezenas) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'aberta', $11, $12) RETURNING id`, [nome_bolao, proximoNumero, data_inicio, valor_aposta, pct_admin, pct_premio_principal, pct_primeiro_sorteio, pct_proximos, pct_doacao, mAdmin, tipo, numDezenas]);
+            const insertRes = await pool.query("INSERT INTO edicoes (nome_bolao, numero, data_inicio, valor_aposta, pct_admin, pct_premio_principal, pct_primeiro_sorteio, pct_proximos, pct_doacao, mostrar_admin, status, tipo_bolao, qtd_dezenas) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'aberta', $11, $12) RETURNING id", [nome_bolao, proximoNumero, data_inicio, valor_aposta, pct_admin, pct_premio_principal, pct_primeiro_sorteio, pct_proximos, pct_doacao, mAdmin, tipo, numDezenas]);
             const novaEdicaoId = insertRes.rows[0].id;
             
-            // CLONAGEM DINÂMICA ALVO
             if (clonar_jogos_id && clonar_jogos_id !== 'nao') {
                 const apostasAnteriores = (await pool.query("SELECT nome, dezenas, is_bonus, pago FROM apostas WHERE edicao_id = $1", [clonar_jogos_id])).rows;
                 for (const ap of apostasAnteriores) {
@@ -364,7 +366,7 @@ app.post('/edicoes/salvar', checkAdmin, async (req, res) => {
                     } else if (dezenasArray.length > numDezenas) {
                         dezenasArray = dezenasArray.slice(0, numDezenas);
                     }
-                    await pool.query(`INSERT INTO apostas (edicao_id, nome, dezenas, is_bonus, pago, acertos, tem_erro) VALUES ($1, $2, $3, $4, $5, 0, 0)`, [novaEdicaoId, ap.nome, JSON.stringify(dezenasArray), ap.is_bonus, ap.pago]);
+                    await pool.query("INSERT INTO apostas (edicao_id, nome, dezenas, is_bonus, pago, acertos, tem_erro) VALUES ($1, $2, $3, $4, $5, 0, 0)", [novaEdicaoId, ap.nome, JSON.stringify(dezenasArray), ap.is_bonus, ap.pago]);
                 }
             }
             res.redirect(`/edicoes?edicao_id=${novaEdicaoId}`);
@@ -454,7 +456,7 @@ app.post('/edicoes/importar', checkAdmin, upload.single('planilha'), (req, res) 
                 while (dezenasBrutas.length < limiteDezenas) { dezenasBrutas.push(0); }
                 dezenasBrutas.sort((a, b) => a - b);
 
-                await pool.query(`INSERT INTO apostas (edicao_id, nome, dezenas, is_bonus, pago, acertos, tem_erro) VALUES ($1, $2, $3, $4, $5, 0, $6)`, 
+                await pool.query("INSERT INTO apostas (edicao_id, nome, dezenas, is_bonus, pago, acertos, tem_erro) VALUES ($1, $2, $3, $4, $5, 0, $6)", 
                     [ctx.edicao.id, nomeRaw, JSON.stringify(dezenasBrutas), isBonus, estaPago, possuiErroDigitacao]
                 );
             }
@@ -467,9 +469,9 @@ app.post('/edicoes/importar', checkAdmin, upload.single('planilha'), (req, res) 
 app.get('/sorteios', checkAdmin, (req, res) => {
     getContextoEdicao(req, async (err, ctx) => {
         try {
-            const sorteiosRows = (await pool.query(`SELECT * FROM sorteios WHERE edicao_id = $1 ORDER BY concurso DESC`, [ctx.edicao.id])).rows;
+            const sorteiosRows = (await pool.query("SELECT * FROM sorteios WHERE edicao_id = $1 ORDER BY concurso DESC", [ctx.edicao.id])).rows;
             const sorteios = (sorteiosRows || []).map(s => ({ ...s, dezenas: JSON.parse(s.dezenas) }));
-            const apInfo = (await pool.query(`SELECT MAX(acertos) as max_acertos FROM apostas WHERE edicao_id = $1`, [ctx.edicao.id])).rows[0];
+            const apInfo = (await pool.query("SELECT MAX(acertos) as max_acertos FROM apostas WHERE edicao_id = $1", [ctx.edicao.id])).rows[0];
             
             let temSena = ctx.edicao.tipo_bolao === 'acumulativo' && apInfo && apInfo.max_acertos >= ctx.edicao.qtd_dezenas;
             let tiroCurtoFinalizado = ctx.edicao.tipo_bolao === 'tiro_curto' && sorteios.length >= 1;
@@ -496,26 +498,26 @@ app.post('/sorteios/novo', checkAdmin, async (req, res) => {
         
         const arr = req.body.dezenas.split(',').map(Number).sort((a,b) => a - b);
         try {
-            const srt = (await pool.query(`SELECT COUNT(*) as count FROM sorteios WHERE edicao_id = $1`, [ctx.edicao.id])).rows[0];
+            const srt = (await pool.query("SELECT COUNT(*) as count FROM sorteios WHERE edicao_id = $1", [ctx.edicao.id])).rows[0];
             if (srt && parseInt(srt.count) === 0) {
-                const aps = (await pool.query(`SELECT id FROM apostas WHERE edicao_id = $1 ORDER BY nome ASC`, [ctx.edicao.id])).rows;
+                const aps = (await pool.query("SELECT id FROM apostas WHERE edicao_id = $1 ORDER BY nome ASC", [ctx.edicao.id])).rows;
                 let idx = 1;
                 for (const ap of aps) {
-                    await pool.query(`UPDATE apostas SET cartao = $1 WHERE id = $2`, [idx++, ap.id]);
+                    await pool.query("UPDATE apostas SET cartao = $1 WHERE id = $2", [idx++, ap.id]);
                 }
             }
             
-            await pool.query(`INSERT INTO sorteios (edicao_id, concurso, dezenas) VALUES ($1, $2, $3)`, [ctx.edicao.id, req.body.concurso, JSON.stringify(arr)]);
+            await pool.query("INSERT INTO sorteios (edicao_id, concurso, dezenas) VALUES ($1, $2, $3)", [ctx.edicao.id, req.body.concurso, JSON.stringify(arr)]);
             
-            const allApostas = (await pool.query(`SELECT id, dezenas FROM apostas WHERE edicao_id = $1`, [ctx.edicao.id])).rows;
-            const allSorteios = (await pool.query(`SELECT dezenas FROM sorteios WHERE edicao_id = $1`, [ctx.edicao.id])).rows;
+            const allApostas = (await pool.query("SELECT id, dezenas FROM apostas WHERE edicao_id = $1", [ctx.edicao.id])).rows;
+            const allSorteios = (await pool.query("SELECT dezenas FROM sorteios WHERE edicao_id = $1", [ctx.edicao.id])).rows;
             let drawnNumbers = [];
             allSorteios.forEach(s => drawnNumbers = drawnNumbers.concat(JSON.parse(s.dezenas)));
             
             for (const ap of allApostas) {
                 let currentDezenas = JSON.parse(ap.dezenas);
                 let hits = currentDezenas.filter(n => drawnNumbers.includes(n)).length;
-                await pool.query(`UPDATE apostas SET acertos = $1 WHERE id = $2`, [hits, ap.id]);
+                await pool.query("UPDATE apostas SET acertos = $1 WHERE id = $2", [hits, ap.id]);
             }
 
             if (ctx.edicao.tipo_bolao === 'tiro_curto') {
@@ -529,7 +531,7 @@ app.post('/sorteios/novo', checkAdmin, async (req, res) => {
 
 app.post('/sorteios/deletar/:id', checkAdmin, async (req, res) => {
     getContextoEdicao(req, async (err, ctx) => {
-        await pool.query(`DELETE FROM sorteios WHERE id = $1`, [req.params.id]);
+        await pool.query("DELETE FROM sorteios WHERE id = $1", [req.params.id]);
         await pool.query("UPDATE edicoes SET status = 'aberta' WHERE id = $1", [ctx.edicao.id]);
         res.redirect(`/sorteios?edicao_id=${ctx.edicao.id}`);
     });
