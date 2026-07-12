@@ -10,9 +10,9 @@
         body { background-color: #f4f7f6; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; color: #495057; }
         
         /* Top Cards de Status */
-        .stat-card { border: none; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); background: #ffffff; padding: 20px; text-align: center; margin-bottom: 20px; }
+        .stat-card { border: none; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); background: #ffffff; padding: 20px; text-align: center; margin-bottom: 20px; height: calc(100% - 20px); }
         .stat-card h6 { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #6c757d; margin-bottom: 8px; }
-        .stat-card h3 { font-size: 22px; font-weight: 800; color: #212529; margin-bottom: 0; }
+        .stat-card h3 { font-size: 20px; font-weight: 800; color: #212529; margin-bottom: 0; }
         .status-dot { width: 10px; height: 10px; background-color: #dc3545; border-radius: 50%; display: inline-block; margin-right: 5px; animation: pulse 2s infinite; }
         
         /* Containers Principais */
@@ -23,10 +23,11 @@
         .box-concurso { background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 16px; margin-bottom: 16px; position: relative; }
         .concurso-badge { font-size: 10px; font-weight: 700; color: #2563eb; background: #eff6ff; padding: 4px 8px; border-radius: 6px; position: absolute; right: 16px; top: 16px; }
 
-        /* Bolas de Dezenas */
-        .ball { width: 32px; height: 32px; line-height: 32px; border-radius: 50%; display: inline-block; text-align: center; font-weight: 700; font-size: 13px; margin: 2px; border: 1px solid #cbd5e1; background: #ffffff; color: #334155; }
-        .ball.drawn { background-color: #10b981; color: #ffffff; border-color: #10b981; }
-        .ball.dark-drawn { background-color: #1e293b; color: #ffffff; border-color: #1e293b; }
+        /* REGRAS DAS BOLAS (MOBILE FIX) */
+        .balls-container { display: flex; flex-wrap: nowrap; justify-content: center; gap: 4px; min-width: max-content; }
+        .ball { width: 32px; height: 32px; line-height: 30px; border-radius: 50%; display: inline-block; text-align: center; font-weight: 700; font-size: 13px; border: 1px solid #cbd5e1; background: #ffffff; color: #334155; flex-shrink: 0; }
+        .ball.drawn { background-color: #10b981 !important; color: #ffffff !important; border-color: #10b981 !important; }
+        .ball.dark-drawn { background-color: #1e293b !important; color: #ffffff !important; border-color: #1e293b !important; }
 
         /* Estilização da Tabela de Classificação */
         .table-ranking th { font-size: 11px; font-weight: 700; text-transform: uppercase; color: #94a3b8; border-top: none; padding: 12px 16px; vertical-align: middle; }
@@ -44,19 +45,19 @@
         .search-wrapper i { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: #94a3b8; }
         .search-input { padding-left: 36px; border-radius: 10px; border: 1px solid #e2e8f0; font-size: 14px; transition: all 0.2s; }
         .search-input:focus { box-shadow: 0 0 0 3px rgba(37,99,235,0.1); border-color: #2563eb; }
-        
         .filter-select { border-radius: 10px; border: 1px solid #e2e8f0; font-size: 14px; width: auto; height: calc(1.5em + .75rem + 2px); }
 
         @keyframes pulse { 0% { opacity: 0.4; } 50% { opacity: 1; } 100% { opacity: 0.4; } }
         
-        /* Layout de Impressão Otimizado */
+        /* IMPRESSÃO FIX: Mantém cores vivas nas dezenas */
         @media print {
+            * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
             body { background: #fff; }
-            .navbar, .search-wrapper, .filter-buttons, .no-print { display: none !important; }
+            .navbar, .search-wrapper, .filter-select, .no-print, .btn-block { display: none !important; }
             .main-card, .stat-card { box-shadow: none !important; border: none !important; padding: 0 !important; margin-bottom: 20px !important; }
             .table-ranking th { color: #000 !important; }
-            .ball { border: 1px solid #000 !important; color: #000 !important; background: #fff !important; }
-            .ball.drawn { background: #ddd !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .ball.drawn { background-color: #10b981 !important; color: #ffffff !important; border-color: #10b981 !important; }
+            .ball.dark-drawn { background-color: #1e293b !important; color: #ffffff !important; border-color: #1e293b !important; }
         }
     </style>
 </head>
@@ -78,27 +79,33 @@
 
 <div class="container-fluid px-md-5">
     
-    <!-- QUADRO DE METRICAS PRINCIPAIS -->
+    <!-- QUADRO DE METRICAS PRINCIPAIS - RÓTULOS ATUALIZADOS -->
     <div class="row">
-        <div class="col-md-3 col-6">
+        <div class="col-md-2 col-6 mb-3">
             <div class="stat-card">
                 <h6>Jogos Concorrendo</h6>
                 <h3><%= stats.total %></h3>
             </div>
         </div>
-        <div class="col-md-3 col-6">
+        <div class="col-md-3 col-6 mb-3">
             <div class="stat-card">
-                <h6>Prêmio Estimado</h6>
-                <h3 class="text-success">R$ <%= stats.fundoPremio.toFixed(2) %></h3>
+                <h6>Premiação Principal (<%= edicao.pct_premio_principal %>%)</h6>
+                <h3 class="text-success">R$ <%= (stats.fundoPremio * (edicao.pct_premio_principal / 100)).toFixed(2) %></h3>
             </div>
         </div>
-        <div class="col-md-3 col-6">
+        <div class="col-md-3 col-6 mb-3">
+            <div class="stat-card">
+                <h6>Premiação Secundária</h6>
+                <h3 class="text-primary">R$ <%= (stats.fundoPremio * ((edicao.pct_primeiro_sorteio + edicao.pct_proximos) / 100)).toFixed(2) %></h3>
+            </div>
+        </div>
+        <div class="col-md-2 col-6 mb-3">
             <div class="stat-card">
                 <h6>Arrecadado Real</h6>
                 <h3>R$ <%= stats.arrecadacaoAtual.toFixed(2) %></h3>
             </div>
         </div>
-        <div class="col-md-3 col-6">
+        <div class="col-md-2 col-12 mb-3">
             <div class="stat-card">
                 <h6>Status do Bolão</h6>
                 <h3>
@@ -126,7 +133,7 @@
                     <div class="box-concurso">
                         <div class="concurso-badge"><%= idx === 0 ? '1º SORTEIO' : 'SORTEIO ACUMULADO' %></div>
                         <div class="text-muted font-weight-bold mb-2" style="font-size: 11px;">CONCURSO Nº <%= s.concurso %></div>
-                        <div class="mt-2">
+                        <div class="mt-2 d-flex flex-wrap justify-content-center" style="gap:4px;">
                             <% s.dezenas.forEach(function(num) { %>
                                 <span class="ball dark-drawn"><%= String(num).padStart(2, '0') %></span>
                             <% }) %>
@@ -146,7 +153,6 @@
                 <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4">
                     <div class="card-title-custom mb-2 mb-md-0"><i class="fas fa-list-ol mr-2 text-primary"></i> Classificação</div>
                     
-                    <!-- Filtros dinâmicos e Busca -->
                     <div class="d-flex flex-wrap align-items-center no-print" style="gap: 12px;">
                         <select id="filter-acertos" class="form-control filter-select" onchange="filtrarTabela()">
                             <option value="todos">Filtrar por Acertos (Todos)</option>
@@ -165,7 +171,7 @@
                     </div>
                 </div>
 
-                <!-- Tabela Dinâmica de Pontuação -->
+                <!-- Tabela Dinâmica com Correção Mobile Horizontal -->
                 <div class="table-responsive">
                     <table class="table table-ranking" id="table-ranking-body">
                         <thead>
@@ -181,24 +187,26 @@
                                 <tr class="ranking-row" data-acertos="<%= row.accTot %>" data-nome="<%= row.nome.toLowerCase() %>">
                                     <td class="text-muted font-weight-bold">#<%= row.cartao %></td>
                                     <td>
-                                        <div class="font-weight-bold text-dark text-uppercase" style="letter-spacing: 0.3px;"><%= row.nome %></div>
+                                        <div class="font-weight-bold text-dark text-uppercase" style="letter-spacing: 0.3px; line-height: 1.2;"><%= row.nome %></div>
                                         <% if (row.is_bonus) { %><span class="badge-bonus">BÔNUS</span><% } %>
                                         
-                                        <!-- Bloco dinâmico de exibição automática de prêmios se houver ganhadores -->
                                         <% if (row.valorTotalPremio > 0) { %>
                                             <div>
                                                 <span class="badge-winner">
-                                                    <i class="fas fa-trophy"></i> Campeão (<%= row.accTot %> Pts): R$ <%= row.valorTotalPremio.toFixed(2) %>
+                                                    <i class="fas fa-trophy"></i> Ganhador (<%= row.accTot %> Pts): R$ <%= row.valorTotalPremio.toFixed(2) %>
                                                 </span>
                                             </div>
                                         <% } %>
                                     </td>
                                     <td class="text-center">
-                                        <% row.dezenas.forEach(function(num) { 
-                                            let foiSorteda = todasDezenas.includes(num);
-                                        %>
-                                            <span class="ball <%= foiSorteda ? 'drawn' : '' %>"><%= String(num).padStart(2, '0') %></span>
-                                        <% }) %>
+                                        <!-- Container flex impede a quebra vertical das dezenas no smartphone -->
+                                        <div class="balls-container">
+                                            <% row.dezenas.forEach(function(num) { 
+                                                let foiSorteda = todasDezenas.includes(num);
+                                            %>
+                                                <span class="ball <%= foiSorteda ? 'drawn' : '' %>"><%= String(num).padStart(2, '0') %></span>
+                                            <% }) %>
+                                        </div>
                                     </td>
                                     <td class="text-center">
                                         <h4 class="font-weight-bold mb-0 <%= row.valorTotalPremio > 0 ? 'text-success' : 'text-dark' %>" style="font-size: 18px;"><%= row.accTot %></h4>
@@ -214,7 +222,6 @@
     </div>
 </div>
 
-<!-- LÓGICA DE FILTRAGEM DINÂMICA VIA JAVASCRIPT -->
 <script>
 function filtrarTabela() {
     const inputBusca = document.getElementById('search-input').value.toLowerCase();
