@@ -23,8 +23,8 @@
         .box-concurso { background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 16px; margin-bottom: 16px; position: relative; }
         .concurso-badge { font-size: 10px; font-weight: 700; color: #2563eb; background: #eff6ff; padding: 4px 8px; border-radius: 6px; position: absolute; right: 16px; top: 16px; }
 
-        /* REGRAS DAS BOLAS (MOBILE FIX) */
-        .balls-container { display: flex; flex-wrap: nowrap; justify-content: center; gap: 4px; min-width: max-content; }
+        /* REGRAS DAS BOLAS */
+        .balls-container { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
         .ball { width: 32px; height: 32px; line-height: 30px; border-radius: 50%; display: inline-block; text-align: center; font-weight: 700; font-size: 13px; border: 1px solid #cbd5e1; background: #ffffff; color: #334155; flex-shrink: 0; }
         .ball.drawn { background-color: #10b981 !important; color: #ffffff !important; border-color: #10b981 !important; }
         .ball.dark-drawn { background-color: #1e293b !important; color: #ffffff !important; border-color: #1e293b !important; }
@@ -38,7 +38,7 @@
         /* Badges de Premiação e Ganhadores */
         .badge-winner { background-color: #e6f4ea; color: #137333; font-weight: 700; font-size: 11px; padding: 4px 10px; border-radius: 6px; display: inline-flex; align-items: center; margin-top: 4px; box-shadow: 0 2px 4px rgba(19,115,51,0.08); }
         .badge-winner i { margin-right: 5px; font-size: 12px; }
-        .badge-bonus { background-color: #fef3c7; color: #d97706; font-weight: 700; font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-left: 6px; }
+        .badge-bonus { background-color: #fef3c7; color: #d97706; font-weight: 700; font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-left: 6px; display: inline-block; }
         
         /* Controles Interativos */
         .search-wrapper { position: relative; max-width: 300px; width: 100%; }
@@ -49,7 +49,86 @@
 
         @keyframes pulse { 0% { opacity: 0.4; } 50% { opacity: 1; } 100% { opacity: 0.4; } }
         
-        /* IMPRESSÃO FIX: Mantém cores vivas nas dezenas */
+        /* BLINDAGEM MOBILE AVANÇADA (SEM CO-EXISTENCIA HORIZONTAL FORÇADA) */
+        @media (max-width: 768px) {
+            /* Desativa o formato de tabela cru no celular para não espremer */
+            .table-ranking, .table-ranking thead, .table-ranking tbody, .table-ranking tr, .table-ranking th, .table-ranking td { 
+                display: block; 
+                width: 100%; 
+                text-align: left !important;
+            }
+            .table-ranking thead { display: none; } /* Esconde o cabeçalho antigo */
+            
+            .ranking-row { 
+                background: #ffffff;
+                border: 1px solid #e2e8f0;
+                border-radius: 12px;
+                padding: 14px;
+                margin-bottom: 12px;
+                box-shadow: 0 2px 6px rgba(0,0,0,0.01);
+            }
+            
+            .table-ranking td { 
+                border-top: none !important; 
+                padding: 4px 0 !important; 
+            }
+            
+            /* Cartão identificador */
+            .table-ranking tr td:nth-child(1) {
+                font-size: 12px;
+                color: #64748b;
+                display: inline-block;
+                width: auto;
+                margin-right: 5px;
+            }
+            
+            /* Nome e bloco superior */
+            .table-ranking tr td:nth-child(2) {
+                display: block;
+                margin-bottom: 8px;
+            }
+            
+            /* Centraliza as bolas abaixo do nome ocupando toda a tela */
+            .table-ranking tr td:nth-child(3) {
+                display: block;
+                background: #f8fafc;
+                padding: 10px !important;
+                border-radius: 8px;
+                margin-bottom: 8px;
+            }
+            .balls-container {
+                justify-content: space-between; /* Distribui igualmente os 6 números */
+                flex-wrap: nowrap;
+            }
+            .ball {
+                width: 34px; /* Ligeiramente maior para toque confortável */
+                height: 34px;
+                line-height: 32px;
+                font-size: 12px;
+            }
+
+            /* Acertos em destaque lateral ou inferior */
+            .table-ranking tr td:nth-child(4) {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                font-size: 14px;
+                font-weight: bold;
+                padding-top: 6px !important;
+                border-top: 1px dashed #e2e8f0 !important;
+            }
+            .table-ranking tr td:nth-child(4)::before {
+                content: "Total de Acertos:";
+                color: #64748b;
+                font-weight: 500;
+            }
+            .table-ranking tr td:nth-child(4) h4 {
+                font-size: 18px !important;
+                margin: 0 !important;
+            }
+        }
+
+        /* IMPRESSÃO CONFIG */
         @media print {
             * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
             body { background: #fff; }
@@ -79,7 +158,7 @@
 
 <div class="container-fluid px-md-5">
     
-    <!-- QUADRO DE METRICAS PRINCIPAIS - RÓTULOS ATUALIZADOS -->
+    <!-- QUADRO DE METRICAS PRINCIPAIS -->
     <div class="row">
         <div class="col-md-2 col-6 mb-3">
             <div class="stat-card">
@@ -160,7 +239,7 @@
                                 let acertosExistentes = [...new Set(ranking.map(r => r.accTot))].sort((a,b) => b - a);
                                 acertosExistentes.forEach(function(qtd) { 
                             %>
-                                <option value="<%= qtd %>"><%= qtd %> Pontos</option>
+                                <option value="<%= qtd %>"><option value="<%= qtd %>"><%= qtd %> Pontos</option>
                             <% }); %>
                         </select>
 
@@ -171,8 +250,8 @@
                     </div>
                 </div>
 
-                <!-- Tabela Dinâmica com Correção Mobile Horizontal -->
-                <div class="table-responsive">
+                <!-- Estrutura Híbrida Inteligente (Tabela no PC / Grid de Cards Adaptados no Celular) -->
+                <div class="table-responsive" style="overflow-x: hidden;">
                     <table class="table table-ranking" id="table-ranking-body">
                         <thead>
                             <tr>
@@ -187,7 +266,8 @@
                                 <tr class="ranking-row" data-acertos="<%= row.accTot %>" data-nome="<%= row.nome.toLowerCase() %>">
                                     <td class="text-muted font-weight-bold">#<%= row.cartao %></td>
                                     <td>
-                                        <div class="font-weight-bold text-dark text-uppercase" style="letter-spacing: 0.3px; line-height: 1.2;"><%= row.nome %></div>
+                                        <span class="text-muted font-weight-bold d-inline-block d-md-none">#<%= row.cartao %></span>
+                                        <div class="font-weight-bold text-dark text-uppercase d-inline-block" style="letter-spacing: 0.3px; line-height: 1.2;"><%= row.nome %></div>
                                         <% if (row.is_bonus) { %><span class="badge-bonus">BÔNUS</span><% } %>
                                         
                                         <% if (row.valorTotalPremio > 0) { %>
@@ -199,7 +279,6 @@
                                         <% } %>
                                     </td>
                                     <td class="text-center">
-                                        <!-- Container flex impede a quebra vertical das dezenas no smartphone -->
                                         <div class="balls-container">
                                             <% row.dezenas.forEach(function(num) { 
                                                 let foiSorteda = todasDezenas.includes(num);
@@ -229,7 +308,7 @@ function filtrarTabela() {
     const linhas = document.querySelectorAll('.ranking-row');
 
     linhas.forEach(linha => {
-        const nomeParticipante = linha.getAttribute('data-nome');
+        const nomeParticipante = inline = linha.getAttribute('data-nome');
         const acertosParticipante = linha.getAttribute('data-acertos');
 
         const correspondeBusca = nomeParticipante.includes(inputBusca);
