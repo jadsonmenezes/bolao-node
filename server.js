@@ -84,10 +84,10 @@ async function getContextoEdicao(req, callback) {
     let edicao = null;
     let todasEdicoes = [];
 
-    // 1. Tenta rodar a limpeza da lixeira de forma isolada (se falhar, não quebra o fluxo)
+    // 1. Tenta rodar a limpeza da lixeira de forma isolada
     try {
         await pool.query("DELETE FROM edicoes WHERE deletado_em IS NOT NULL AND deletado_em < NOW() - INTERVAL '3 days'");
-    } catch (err) { /* Ignora erro de data da lixeira */ }
+    } catch (err) { /* Ignora erro secundário */ }
 
     // 2. Resgate de Edição Específica solicitada por ID
     if (edicaoId_selecionada) {
@@ -115,7 +115,7 @@ async function getContextoEdicao(req, callback) {
 
     // 5. Monta a lista do seletor superior de forma flexível
     try {
-        const resLista = await pool.query("SELECT id, numero, nome_bolao, tipo_bolao FROM edicoes WHERE deletado_em IS NULL ORDER BY numero DESC");
+        const resLista = await pool.query("SELECT id, numero, nome_bolao, tipo_bolao FROM edicoes ORDER BY numero DESC");
         todasEdicoes = resLista.rows || [];
     } catch (e) { /* Ignora */ }
 
@@ -137,11 +137,12 @@ async function getContextoEdicao(req, callback) {
 
 function checkAdmin(req, res, next) { if (!res.locals.isAdmin) return res.redirect('/login'); next(); }
 
-// RANKING PÚBLICO
+// RANKING PÚBLICO - CORRIGIDO SEM BLOQUEIOS FRÁGEIS
 app.get('/', (req, res) => {
     getContextoEdicao(req, async (err, ctx) => {
+        // Se realmente não houver nenhuma edição cadastrada no banco inteiro, exibe uma resposta limpa
         if (!ctx || !ctx.edicao || ctx.edicao.id === 0) {
-            return res.send("Nenhum bolão cadastrado ou ativo no momento. Vá ao painel administrativo e crie uma nova rodada!");
+            return res.send("<div style='text-align:center; margin-top:50px; font-family:sans-serif;'><h2>Nenhum bolão ativo encontrado.</h2><p>Acesse o painel e cadastre sua primeira rodada!</p></div>");
         }
         try {
             const apostasRows = (await pool.query(`SELECT * FROM apostas WHERE edicao_id = $1 ORDER BY cartao ASC, nome ASC`, [ctx.edicao.id])).rows;
